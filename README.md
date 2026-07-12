@@ -1,5 +1,11 @@
 # recode12 1.0.3
 
+## Overview
+
+`recode12` is a Stata module for standardizing variables coded 1/2 as labeled 0/1 indicators. This is a routine but consequential data-management task: inconsistent mappings can reverse the meaning of an indicator and affect summaries, models, and interpretation.
+
+The module identifies eligible variables, applies a user-selected mapping, preserves ordinary system missing values, assigns consistent No/Yes value labels, and verifies the results after recoding. It can process one variable, several variables, or all eligible numeric variables in a dataset. Users may specify the mapping directly for reproducible workflows or select it interactively.
+
 ## Installation and example data
 
 Install the module directly from GitHub:
@@ -20,30 +26,11 @@ Load the example dataset:
 use example_data.dta, clear
 ```
 
-## What recode12 does
+## Eligible variables
 
-`recode12` performs one of the most common data-management operations in data science: it converts variables coded 1/2 into labeled 0/1 indicators.
+A variable is eligible for recoding when it is numeric, its nonmissing values consist of both 1 and 2 and no other values, and any missing observations are ordinary system missing (`.`).
 
-The command can process one variable, several variables, or—when no variable list is supplied—all numeric variables in the dataset.
-
-### Variables that are processed
-
-A numeric variable is processed only when:
-
-- every observation is 1, 2, or ordinary system missing (`.`); and
-- both 1 and 2 are observed among its nonmissing values.
-
-### Variables that are not processed
-
-A variable is skipped when it:
-
-- contains an extended missing value (`.a`–`.z`);
-- contains any numeric value other than 1, 2, or `.`;
-- contains only one of the two values 1 and 2;
-- contains no nonmissing observations; or
-- is a string variable when the command examines the dataset automatically.
-
-This rule is determined entirely from the observed values. The command does not infer the substantive meaning of a variable from its name or label.
+Variables that do not meet this rule are skipped and left unchanged. Eligibility is determined entirely from the observed values; the module does not infer substantive meaning from a variable's name or label.
 
 ## Direct, reproducible use
 
