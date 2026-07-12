@@ -1,4 +1,4 @@
-*! version 1.0.3  12jul2026
+*! version 1.0.4  12jul2026
 program define recode12, rclass
     version 19.5
     syntax [varlist(numeric default=none)] [, YESValue(string) SUFfix(name) REPlace]
@@ -126,7 +126,10 @@ program define recode12, rclass
         else {
             local new `v'`suffix'
             quietly generate byte `new' = (`v' == `yesvalue') if !missing(`v')
-            label variable `new' "0/1 from `v'; source `yesvalue' = Yes"
+            local vl : variable label `v'
+            if `"`vl'"' == "" local vl "`v'"
+            local vl = ustrleft(`"`vl'"', 64)
+            label variable `new' `"`vl' (0/1 indicator)"'
             label values `new' `vallab'
             if `yesvalue' == 1 {
                 assert `new' == 1 if `v' == 1
