@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  12jul2026}{...}
+{* *! version 1.0.4  12jul2026}{...}
 {vieweralsosee "recode" "help recode"}{...}
 {vieweralsosee "label values" "help label_values"}{...}
 {title:Title}
@@ -79,9 +79,9 @@ source value.
 {pstd}
 For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
 generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
-Male and 0 for Female. {cmd:recode12} does not infer category meaning. Generated
-variables receive a neutral label identifying the source variable and the source
-value selected as Yes.
+Male and 0 for Female. {cmd:recode12} does not infer category meaning. A
+generated variable retains the source variable's substantive label and appends
+{it:(0/1 indicator)} so that it is clearly distinguished from its source.
 
 {pstd}
 The shared value label is named {cmd:recode12_NoYes}. If a label with that name
@@ -149,7 +149,7 @@ If you use {cmd:recode12} in published work, please cite:
 
 {phang}
 Ma, Hao. 2026. {it:recode12: A Stata command for standardizing 1/2-coded
-variables as labeled 0/1 indicators}. Version 1.0.3.
+variables as labeled 0/1 indicators}. Version 1.0.4.
 
 {title:License}
 
