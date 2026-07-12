@@ -5,7 +5,7 @@
 {title:Title}
 
 {phang}
-{bf:recode12} {hline 2} Standardize 1/2-coded binary variables as labeled 0/1 indicators
+{bf:recode12} {hline 2} Standardize 1/2-coded variables as labeled 0/1 indicators
 
 {title:Syntax}
 
@@ -149,7 +149,7 @@ If you use {cmd:recode12} in published work, please cite:
 
 {phang}
 Ma, Hao. 2026. {it:recode12: A Stata command for standardizing 1/2-coded
-binary variables as labeled 0/1 indicators}. Version 1.0.3.
+variables as labeled 0/1 indicators}. Version 1.0.3.
 
 {title:License}
 
