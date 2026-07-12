@@ -18,6 +18,7 @@ assert missing(x_01) if missing(x)
 assert y_01 == 1 if y == 1
 assert y_01 == 0 if y == 2
 assert n_recoded == 2
+assert `"`: variable label x_01'"' == "x (0/1 indicator)"
 
 drop x_01 y_01
 recode12 x, yesvalue(2) suffix(_bin)
