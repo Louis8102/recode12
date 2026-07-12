@@ -32,8 +32,9 @@ only one of the two categories, or no nonmissing observations are skipped.
 {pstd}
 For each eligible variable, {cmd:recode12} maps the source value selected by
 {opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
-values, and assigns the value label 0 {it:No} and 1 {it:Yes}. If no mapping is
-specified, the user chooses it from the on-screen menu. By default, the command
+values, and assigns 0/1 value labels consistent with the source categories. If
+the source has no value label, 0 is labeled {it:No} and 1 {it:Yes}. If no mapping
+is specified, the user chooses it from the on-screen menu. By default, the command
 creates a new byte variable and leaves the source variable unchanged.
 
 {pstd}
@@ -65,28 +66,27 @@ Stata variable name.
 {phang}
 {opt replace} changes eligible source variables in place. It may not be combined
 with {opt suffix()}. Because this operation overwrites values and replaces the
-attached value label, users should normally retain the default behavior.
+attached variable and value labels, users should normally retain the default behavior.
 
 {title:Remarks}
 
 {pstd}
 The command determines eligibility from values, not from the meaning of a
-variable. The category selected by {opt yesvalue()} becomes the Yes/true
-category, and the other category becomes the No/false category. The variable
-name or variable label should state the proposition represented by the selected
-source value.
+variable. The category selected by {opt yesvalue()} becomes 1 and the other
+category becomes 0. When the source values have category labels, those meanings
+are preserved in the generated 0/1 value label.
 
 {pstd}
 For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
 generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
 Male and 0 for Female. {cmd:recode12} does not infer category meaning. A
-generated variable retains the source variable's substantive label and appends
-{it:(0/1 indicator)} so that it is clearly distinguished from its source.
+generated variable states the resulting coding explicitly, for example
+{it:Sex (0=Male, 1=Female)}.
 
 {pstd}
-The shared value label is named {cmd:recode12_NoYes}. If a label with that name
-already exists, it must define 0 as {it:No} and 1 as {it:Yes}; otherwise the
-command stops without recoding variables.
+The command creates a separate value label for each converted variable so that
+category meanings remain visible after recoding. The names of these labels are
+returned in {cmd:r(value_label)}.
 
 {title:Examples}
 

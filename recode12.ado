@@ -84,21 +84,9 @@ program define recode12, rclass
         }
     }
 
-    local vallab "recode12_NoYes"
-    capture quietly label list `vallab'
-    if _rc {
-        label define `vallab' 0 "No" 1 "Yes"
-    }
-    else {
-        local lab0 : label `vallab' 0
-        local lab1 : label `vallab' 1
-        if `"`lab0'"' != "No" | `"`lab1'"' != "Yes" {
-            di as err "value label `vallab' already exists with incompatible definitions"
-            exit 110
-        }
-    }
-
     local recoded
+    local used_labels
+    local labseq 0
     if `yesvalue' == 1 {
         di as txt "mapping: source 1 -> 1 (Yes); source 2 -> 0 (No)"
     }
@@ -106,11 +94,50 @@ program define recode12, rclass
         di as txt "mapping: source 1 -> 0 (No); source 2 -> 1 (Yes)"
     }
     foreach v of local eligible {
+        local source_vallab : value label `v'
+        local cat1
+        local cat2
+        if `"`source_vallab'"' != "" {
+            local cat1 : label `source_vallab' 1
+            local cat2 : label `source_vallab' 2
+        }
+        if `"`source_vallab'"' == "" {
+            local zero "No"
+            local one  "Yes"
+        }
+        else {
+            if `yesvalue' == 1 {
+                local zero `"`cat2'"'
+                local one  `"`cat1'"'
+            }
+            else {
+                local zero `"`cat1'"'
+                local one  `"`cat2'"'
+            }
+        }
+        local found 0
+        while !`found' {
+            local ++labseq
+            local vallab "recode12_`labseq'"
+            capture quietly label list `vallab'
+            if _rc local found 1
+        }
+        label define `vallab' 0 `"`zero'"' 1 `"`one'"'
+        local used_labels `used_labels' `vallab'
+
+        local vl : variable label `v'
+        if `"`vl'"' == "" local vl "`v'"
+        local codepos = strpos(`"`vl'"', " (1=")
+        if `codepos' > 0 local vl = substr(`"`vl'"', 1, `codepos' - 1)
+        local newvl `"`vl' (0=`zero', 1=`one')"'
+        local newvl = ustrleft(`"`newvl'"', 80)
+
         if `"`replace'"' != "" {
             tempvar original
             quietly clonevar `original' = `v'
             quietly replace `v' = (`original' == `yesvalue') if !missing(`original')
             label values `v' `vallab'
+            label variable `v' `"`newvl'"'
             if `yesvalue' == 1 {
                 assert `v' == 1 if `original' == 1
                 assert `v' == 0 if `original' == 2
@@ -126,10 +153,7 @@ program define recode12, rclass
         else {
             local new `v'`suffix'
             quietly generate byte `new' = (`v' == `yesvalue') if !missing(`v')
-            local vl : variable label `v'
-            if `"`vl'"' == "" local vl "`v'"
-            local vl = ustrleft(`"`vl'"', 64)
-            label variable `new' `"`vl' (0/1 indicator)"'
+            label variable `new' `"`newvl'"'
             label values `new' `vallab'
             if `yesvalue' == 1 {
                 assert `new' == 1 if `v' == 1
@@ -148,7 +172,7 @@ program define recode12, rclass
     local n_recoded : word count `recoded'
     di as txt "standardized `n_recoded' variable(s):" as result " `recoded'"
     di as txt "verification passed: all recoded values match the selected mapping rule"
-    return local value_label "`vallab'"
+    return local value_label `"`used_labels'"'
     return scalar yesvalue = `yesvalue'
     return scalar verified = 1
     return local skipped `"`skipped'"'

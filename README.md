@@ -4,7 +4,7 @@
 
 `recode12` is a Stata module for standardizing variables coded 1/2 as labeled 0/1 indicators. This is a routine but consequential data-management task: inconsistent mappings can reverse the meaning of an indicator and affect summaries, models, and interpretation.
 
-The module identifies eligible variables, applies a user-selected mapping, preserves ordinary system missing values, assigns consistent No/Yes value labels, and verifies the results after recoding. It can process one variable, several variables, or all eligible numeric variables in a dataset. Users may specify the mapping directly for reproducible workflows or select it interactively.
+The module identifies eligible variables, applies a user-selected mapping, preserves ordinary system missing values, carries category meanings into 0/1 value labels when the source has value labels, and verifies the results after recoding. It can process one variable, several variables, or all eligible numeric variables in a dataset. Users may specify the mapping directly for reproducible workflows or select it interactively.
 
 ## Installation and example data
 
@@ -77,16 +77,16 @@ Enter rule 1 or 2 [default 1]:
 
 ## Output and options
 
-By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. The new variable keeps the source variable's substantive label and appends `(0/1 indicator)`, making the transformed variable easy to distinguish. Generated variables receive the shared value label `recode12_NoYes`, which defines 0 as No and 1 as Yes.
+By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. If the source has value labels for 1 and 2, the new variable receives corresponding category-specific labels for 0 and 1, and its variable label states the new coding explicitly. For example, `Children (1=No children, 2=Has children)` becomes `Children (0=No children, 1=Has children)` under `yesvalue(2)`. If the source has no value label, the generated variable uses 0 `No` and 1 `Yes`.
 
 ```stata
-recode12 married employed, yesvalue(2) suffix(_indicator)
+recode12 employed owns_home, yesvalue(2) suffix(_indicator)
 ```
 
 Use `replace` only when the eligible source variables should be changed in place:
 
 ```stata
-recode12 married employed, yesvalue(2) replace
+recode12 employed owns_home, yesvalue(2) replace
 ```
 
 `replace` cannot be combined with `suffix()`.
