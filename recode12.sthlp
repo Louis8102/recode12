@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  20jul2026}{...}
+{* *! version 1.0.3  12jul2026}{...}
 {vieweralsosee "recode" "help recode"}{...}
 {vieweralsosee "label values" "help label_values"}{...}
 {title:Title}
@@ -141,6 +141,20 @@ For {cmd:yesvalue(1)}, the command displays
 {pstd}
 Hao Ma{break}
 Email: {browse "mailto:shouhuoxiwang2027@gmail.com":shouhuoxiwang2027@gmail.com}
+
+{title:Citation}
+
+{pstd}
+If you use {cmd:recode12} in published work, please cite:
+
+{phang}
+Ma, Hao. 2026. {it:recode12: A Stata command for standardizing 1/2-coded
+binary variables as labeled 0/1 indicators}. Version 1.0.3.
+
+{title:License}
+
+{pstd}
+{cmd:recode12} is distributed under the MIT License. Copyright (c) 2026 Hao Ma.
 
 {title:Also see}
 

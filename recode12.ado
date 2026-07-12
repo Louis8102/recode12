@@ -1,4 +1,4 @@
-*! version 1.0.1  20jul2026
+*! version 1.0.3  12jul2026
 program define recode12, rclass
     version 19.5
     syntax [varlist(numeric default=none)] [, YESValue(string) SUFfix(name) REPlace]
