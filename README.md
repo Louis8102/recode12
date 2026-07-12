@@ -28,10 +28,10 @@ to change source variables in place.
 
 ## Installation
 
-From a local distribution directory containing `stata.toc`, type:
+Install the current release directly from GitHub:
 
 ```stata
-net install recode12, from("C:/path/to/distribution")
+net install recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
 ```
 
 After installation, open the complete help file with:
@@ -50,8 +50,12 @@ recode12
 return list
 ```
 
-In a net repository, Stata classifies the dataset and example do-file as
-ancillary files. Retrieve them with `net get recode12` from that repository.
+Stata classifies the dataset and example do-file as ancillary files. Retrieve
+them from GitHub with:
+
+```stata
+net get recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
+```
 
 To examine only named variables and choose another suffix:
 

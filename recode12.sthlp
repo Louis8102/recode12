@@ -12,6 +12,15 @@
 {p 8 17 2}
 {cmd:recode12} [{varlist}] [{cmd:,} {opt suffix(name)} {opt replace}]
 
+{title:Installation}
+
+{phang2}{cmd:. net install recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace}{p_end}
+
+{pstd}
+To retrieve the example dataset and example do-file:
+
+{phang2}{cmd:. net get recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace}{p_end}
+
 {title:Description}
 
 {pstd}

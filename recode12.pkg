@@ -4,6 +4,7 @@ d
 d Distribution-Date: 20260712
 d Author: Hao Ma
 d Support: shouhuoxiwang2021@gmail.com
+d Install with: net install recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
 f recode12.ado
 f recode12.sthlp
 f example_data.dta
