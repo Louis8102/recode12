@@ -27,6 +27,14 @@ assert married_01 == cond(missing(married), ., married == 1)
 assert male == 2 in 2
 assert `"`: variable label male_01'"' == "Respondent is female"
 assert `"`: value label male_01'"' == "recode12_NoYes"
+assert r(yesvalue) == 1
+
+* user-selected reverse direction: source 2 becomes Yes/1
+recode12 male, yesvalue(2) suffix(_rev)
+assert male_rev == 0 if male == 1
+assert male_rev == 1 if male == 2
+assert missing(male_rev) if missing(male)
+assert r(yesvalue) == 2
 
 drop *_01
 replace male = .a in 4
@@ -42,6 +50,22 @@ recode12 male, replace
 assert male == .a in 4
 assert inlist(male, 0, 1) | missing(male)
 assert `"`: value label male'"' == "recode12_NoYes"
+
+* reverse direction also works with replace and preserves extended missing
+clear
+input byte x
+1
+2
+.a
+end
+recode12 x, yesvalue(2) replace
+assert x[1] == 0
+assert x[2] == 1
+assert x[3] == .a
+assert r(yesvalue) == 2
+
+capture noisily recode12 x, yesvalue(3)
+assert _rc == 198
 
 clear
 set obs 3

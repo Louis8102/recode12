@@ -1,7 +1,12 @@
 *! version 1.0.0  12jul2026
 program define recode12, rclass
     version 16.0
-    syntax [anything(name=vars)] [, SUFfix(name) REPlace]
+    syntax [anything(name=vars)] [, YESValue(integer 1) SUFfix(name) REPlace]
+
+    if !inlist(`yesvalue', 1, 2) {
+        di as err "yesvalue() must be 1 or 2"
+        exit 198
+    }
 
     local suffix_given = (`"`suffix'"' != "")
     if `"`replace'"' != "" & `suffix_given' {
@@ -77,14 +82,16 @@ program define recode12, rclass
     local recoded
     foreach v of local eligible {
         if `"`replace'"' != "" {
-            quietly replace `v' = 0 if `v' == 2
+            if `yesvalue' == 1 quietly replace `v' = 0 if `v' == 2
+            else quietly replace `v' = (`v' == 2) if !missing(`v')
             label values `v' `vallab'
             local recoded `recoded' `v'
         }
         else {
             local new `v'`suffix'
             quietly generate byte `new' = `v'
-            quietly replace `new' = 0 if `new' == 2
+            if `yesvalue' == 1 quietly replace `new' = 0 if `new' == 2
+            else quietly replace `new' = (`new' == 2) if !missing(`new')
             local vl : variable label `v'
             if `"`vl'"' != "" label variable `new' `"`vl'"'
             label values `new' `vallab'
@@ -95,6 +102,7 @@ program define recode12, rclass
     local n_recoded : word count `recoded'
     di as txt "standardized `n_recoded' variable(s):" as result " `recoded'"
     return local value_label "`vallab'"
+    return scalar yesvalue = `yesvalue'
     return local skipped `"`skipped'"'
     return local source `"`eligible'"'
     return local recoded `"`recoded'"'

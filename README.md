@@ -10,7 +10,8 @@ For every numeric variable requested, `recode12` verifies that:
 - both nonmissing values 1 and 2 are observed; and
 - no other nonmissing numeric value is observed.
 
-Variables satisfying both conditions are mapped as follows:
+With the default `yesvalue(1)`, variables satisfying both conditions are mapped
+as follows:
 
 | Source value | Result | Displayed label |
 |---:|---:|---|
@@ -25,6 +26,9 @@ all numeric variables and ignores string variables.
 By default, new byte variables are generated with suffix `_01`; source
 variables remain unchanged. The `replace` option must be specified explicitly
 to change source variables in place.
+
+Coding direction is user-selectable. `yesvalue(1)` maps source value 1 to
+Yes/1; `yesvalue(2)` maps source value 2 to Yes/1 and source value 1 to No/0.
 
 ## Installation
 
@@ -63,18 +67,35 @@ To examine only named variables and choose another suffix:
 recode12 female married employed insured, suffix(_bin)
 ```
 
+To make the category originally coded 2 the Yes/1 category:
+
+```stata
+recode12 female, yesvalue(2) suffix(_male)
+```
+
 To overwrite eligible source variables intentionally:
 
 ```stata
 recode12 married employed insured, replace
 ```
 
+Common goals can therefore be expressed directly:
+
+| Goal | Command |
+|---|---|
+| Scan all numeric variables; source 1 becomes Yes/1 | `recode12` |
+| Recode only selected variables | `recode12 female married employed` |
+| Source 2 becomes Yes/1 | `recode12 female, yesvalue(2)` |
+| Use a custom suffix | `recode12 female, suffix(_bin)` |
+| Source 2 becomes Yes/1 with a custom suffix | `recode12 female, yesvalue(2) suffix(_male)` |
+| Overwrite eligible source variables | `recode12 female married, replace` |
+| Overwrite and make source 2 Yes/1 | `recode12 female, yesvalue(2) replace` |
+
 ## Interpretation
 
-The source category coded 1 becomes the Yes/true category; the source category
-coded 2 becomes the No/false category. A variable name or variable label should
-therefore state what value 1 represents. For example, a variable labeled
-`Respondent is female` can be displayed as 0 No and 1 Yes.
+The source category selected by `yesvalue()` becomes the Yes/true category; the
+other source category becomes No/false. A variable name or variable label should
+state what the selected source category represents.
 
 The command identifies coding patterns from observed values. It does not infer
 the substantive meaning of a variable and does not rewrite its variable label.
@@ -83,14 +104,17 @@ the substantive meaning of a variable and does not rewrite its variable label.
 
 `recode12` returns the number of converted variables in `r(n_recoded)` and the
 converted, source, and skipped variable lists in `r(recoded)`, `r(source)`, and
-`r(skipped)`. The common value-label name is returned in `r(value_label)`.
+`r(skipped)`. The selected source value mapped to Yes/1 is returned in
+`r(yesvalue)`, and the common value-label name is returned in `r(value_label)`.
 
 ## Distribution files
 
 - `recode12.ado` — command implementation
 - `recode12.sthlp` — official Stata help file
 - `recode12.pkg` and `stata.toc` — net-install metadata
-- `example_data.dta` — example dataset
+- `example_data.dta` — 10,000-observation simulated example dataset covering
+  eligible and ineligible coding patterns, numeric storage types, ordinary and
+  extended missing values, labels, continuous values, and a string variable
 - `recode12_examples.do` — reproducible examples
 - `recode12_test.do` — functional and boundary tests
 - `README.md` — distribution overview

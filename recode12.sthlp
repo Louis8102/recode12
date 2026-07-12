@@ -10,7 +10,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:recode12} [{varlist}] [{cmd:,} {opt suffix(name)} {opt replace}]
+{cmd:recode12} [{varlist}] [{cmd:,} {opt yesvalue(#)} {opt suffix(name)} {opt replace}]
 
 {title:Installation}
 
@@ -31,15 +31,21 @@ only one of the two values, and variables containing no nonmissing observations
 are skipped.
 
 {pstd}
-For each eligible variable, {cmd:recode12} maps 1 to 1 and 2 to 0, preserves
-numeric missing values, and assigns the value label 0 {it:No} and 1 {it:Yes}.
-By default, it creates a new byte variable and leaves the source variable
-unchanged.
+For each eligible variable, {cmd:recode12} maps the source value selected by
+{opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
+values, and assigns the value label 0 {it:No} and 1 {it:Yes}. The default is
+{cmd:yesvalue(1)}. By default, it creates a new byte variable and leaves the
+source variable unchanged.
 
 {pstd}
 If {it:varlist} is omitted, all numeric variables in the dataset are examined.
 
 {title:Options}
+
+{phang}
+{opt yesvalue(#)} specifies which source value becomes 1 ({it:Yes}). The
+argument must be 1 or 2. The default is {cmd:yesvalue(1)}. Specify
+{cmd:yesvalue(2)} to map source value 2 to 1 and source value 1 to 0.
 
 {phang}
 {opt suffix(name)} specifies the suffix for generated variables. The default is
@@ -55,17 +61,16 @@ attached value label, users should normally retain the default behavior.
 
 {pstd}
 The command determines eligibility from values, not from the meaning of a
-variable. With the default mapping, the category originally coded 1 becomes the
-Yes/true category and the category originally coded 2 becomes the No/false
-category. The variable name or variable label should therefore state the
-proposition represented by value 1.
+variable. The category selected by {opt yesvalue()} becomes the Yes/true
+category, and the other category becomes the No/false category. The variable
+name or variable label should state the proposition represented by the selected
+source value.
 
 {pstd}
-For example, if {cmd:sex} is coded 1 Female and 2 Male, the generated indicator
-has 1 for Female and 0 for Male. A variable name such as {cmd:female_01}, or a
-variable label such as {it:Respondent is female}, makes the No/Yes interpretation
-explicit. {cmd:recode12} preserves the source variable label but does not infer
-or rewrite its meaning.
+For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
+generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
+Male and 0 for Female. {cmd:recode12} preserves the source variable label but
+does not infer or rewrite its meaning.
 
 {pstd}
 The shared value label is named {cmd:recode12_NoYes}. If a label with that name
@@ -84,7 +89,9 @@ supplied with this package can be loaded as follows:
 {phang2}{cmd:. recode12 married employed insured}{p_end}
 {phang2}{cmd:. recode12}{p_end}
 {phang2}{cmd:. recode12 male white married, suffix(_bin)}{p_end}
+{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_male)}{p_end}
 {phang2}{cmd:. recode12 married employed, replace}{p_end}
+{phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
 
 {title:Stored results}
 
@@ -93,6 +100,7 @@ supplied with this package can be loaded as follows:
 
 {synoptset 20 tabbed}{...}
 {synopt:{cmd:r(n_recoded)}}number of variables recoded{p_end}
+{synopt:{cmd:r(yesvalue)}}source value mapped to 1 ({it:Yes}){p_end}
 {synopt:{cmd:r(recoded)}}generated or replaced variables{p_end}
 {synopt:{cmd:r(source)}}eligible source variables{p_end}
 {synopt:{cmd:r(skipped)}}examined variables not meeting the rule{p_end}
