@@ -1,2 +1,3 @@
 v 3
+d Materials by Hao Ma
 p recode12 Standardize 1/2-coded binary variables as labeled 0/1 indicators

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  12jul2026}{...}
+{* *! version 1.0.1  20jul2026}{...}
 {vieweralsosee "recode" "help recode"}{...}
 {vieweralsosee "label values" "help label_values"}{...}
 {title:Title}
@@ -38,8 +38,9 @@ creates a new byte variable and leaves the source variable unchanged.
 
 {pstd}
 If {it:varlist} is omitted, all numeric variables in the dataset are examined.
-If {opt yesvalue()} is omitted, {cmd:recode12} displays two mapping rules and
-waits for the user to enter 1 or 2 before any variable is generated or changed.
+If {opt yesvalue()} is omitted, {cmd:recode12} displays two complete recoding
+rules. Rule 1 maps source 1 to No/0 and source 2 to Yes/1. Rule 2 maps source 1
+to Yes/1 and source 2 to No/0.
 
 {pstd}
 After recoding, the command verifies every converted observation against the
@@ -57,8 +58,9 @@ to Yes/1. This option is recommended in do-files and batch jobs.
 
 {phang}
 {opt suffix(name)} specifies the suffix for generated variables. The default is
-{cmd:suffix(_01)}. The resulting name must be a legal, unused Stata variable
-name.
+the neutral suffix {cmd:suffix(_01)}. Suffixes should describe the coding format
+rather than assume category meaning. The resulting name must be a legal, unused
+Stata variable name.
 
 {phang}
 {opt replace} changes eligible source variables in place. It may not be combined
@@ -77,8 +79,9 @@ source value.
 {pstd}
 For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
 generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
-Male and 0 for Female. {cmd:recode12} preserves the source variable label but
-does not infer or rewrite its meaning.
+Male and 0 for Female. {cmd:recode12} does not infer category meaning. Generated
+variables receive a neutral label identifying the source variable and the source
+value selected as Yes.
 
 {pstd}
 The shared value label is named {cmd:recode12_NoYes}. If a label with that name
@@ -97,19 +100,19 @@ supplied with this package can be loaded as follows:
 {pstd}
 With no {opt yesvalue()} option, the screen displays:
 
-{phang2}{cmd:Please choose the mapping rule:}{p_end}
+{phang2}{cmd:Please choose the recoding rule:}{p_end}
 {phang2}{cmd:1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)}{p_end}
 {phang2}{cmd:2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)}{p_end}
-{phang2}{cmd:Enter 1 or 2 [default 1]:}{p_end}
+{phang2}{cmd:Enter rule 1 or 2 [default 1]:}{p_end}
 
 {pstd}
-Pressing Enter without typing a number selects rule 1: source 1 becomes No/0
-and source 2 becomes Yes/1.
+Pressing Enter selects rule 1: source 1 becomes No/0 and source 2 becomes
+Yes/1.
 
 {phang2}{cmd:. recode12 married employed insured}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
 {phang2}{cmd:. recode12 male white married, suffix(_bin)}{p_end}
-{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_male)}{p_end}
+{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_01)}{p_end}
 {phang2}{cmd:. recode12 married employed, replace}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
 
@@ -137,7 +140,7 @@ For {cmd:yesvalue(1)}, the command displays
 
 {pstd}
 Hao Ma{break}
-Email: {browse "mailto:shouhuoxiwang2021@gmail.com":shouhuoxiwang2021@gmail.com}
+Email: {browse "mailto:shouhuoxiwang2027@gmail.com":shouhuoxiwang2027@gmail.com}
 
 {title:Also see}
 

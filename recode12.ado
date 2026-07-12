@@ -1,25 +1,9 @@
-*! version 1.0.0  12jul2026
+*! version 1.0.1  20jul2026
 program define recode12, rclass
-    version 16.0
-    syntax [anything(name=vars)] [, YESValue(string) SUFfix(name) REPlace]
+    version 19.5
+    syntax [varlist(numeric default=none)] [, YESValue(string) SUFfix(name) REPlace]
 
-    if `"`yesvalue'"' == "" {
-        di as txt _newline "Please choose the mapping rule:" _newline
-        di as txt "1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)"
-        di as txt "2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)" _newline
-        local choice
-        while !inlist(`"`choice'"', "1", "2") {
-            display as txt "Enter 1 or 2 [default 1]:" _continue
-            display _request(_choice)
-            if `"`choice'"' == "" local choice 1
-            if !inlist(`"`choice'"', "1", "2") {
-                di as err "Please enter either 1 or 2."
-            }
-        }
-        if `"`choice'"' == "1" local yesvalue 2
-        else local yesvalue 1
-    }
-    else if !inlist(`"`yesvalue'"', "1", "2") {
+    if `"`yesvalue'"' != "" & !inlist(`"`yesvalue'"', "1", "2") {
         di as err "yesvalue() must be 1 or 2"
         exit 198
     }
@@ -31,20 +15,18 @@ program define recode12, rclass
     }
     if `"`suffix'"' == "" local suffix "_01"
 
-    if `"`vars'"' == "" {
+    if `"`varlist'"' == "" {
         quietly ds, has(type numeric)
         local varlist `r(varlist)'
-    }
-    else {
-        unab varlist : `vars'
-        foreach v of local varlist {
-            confirm numeric variable `v'
-        }
     }
     if `"`varlist'"' == "" {
         di as txt "no numeric variables found"
         return local skipped ""
+        return local source ""
         return local recoded ""
+        return local value_label ""
+        return scalar yesvalue = .
+        return scalar verified = 1
         return scalar n_recoded = 0
         exit
     }
@@ -69,9 +51,30 @@ program define recode12, rclass
     if `"`eligible'"' == "" {
         di as txt "no variables met the 1/2 coding rule"
         return local skipped `"`skipped'"'
+        return local source ""
         return local recoded ""
+        return local value_label ""
+        return scalar yesvalue = .
+        return scalar verified = 1
         return scalar n_recoded = 0
         exit
+    }
+
+    if `"`yesvalue'"' == "" {
+        di as txt _newline "Please choose the recoding rule:" _newline
+        di as txt "1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)"
+        di as txt "2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)" _newline
+        local choice
+        while !inlist(`"`choice'"', "1", "2") {
+            display as txt "Enter rule 1 or 2 [default 1]:" _continue
+            display _request(_choice)
+            if `"`choice'"' == "" local choice 1
+            if !inlist(`"`choice'"', "1", "2") {
+                di as err "Please enter either 1 or 2."
+            }
+        }
+        if `"`choice'"' == "1" local yesvalue 2
+        else local yesvalue 1
     }
 
     if `"`replace'"' == "" {
@@ -106,8 +109,7 @@ program define recode12, rclass
         if `"`replace'"' != "" {
             tempvar original
             quietly clonevar `original' = `v'
-            if `yesvalue' == 1 quietly replace `v' = 0 if `v' == 2
-            else quietly replace `v' = (`v' == 2) if !missing(`v')
+            quietly replace `v' = (`original' == `yesvalue') if !missing(`original')
             label values `v' `vallab'
             if `yesvalue' == 1 {
                 assert `v' == 1 if `original' == 1
@@ -123,11 +125,8 @@ program define recode12, rclass
         }
         else {
             local new `v'`suffix'
-            quietly generate byte `new' = `v'
-            if `yesvalue' == 1 quietly replace `new' = 0 if `new' == 2
-            else quietly replace `new' = (`new' == 2) if !missing(`new')
-            local vl : variable label `v'
-            if `"`vl'"' != "" label variable `new' `"`vl'"'
+            quietly generate byte `new' = (`v' == `yesvalue') if !missing(`v')
+            label variable `new' "0/1 from `v'; source `yesvalue' = Yes"
             label values `new' `vallab'
             if `yesvalue' == 1 {
                 assert `new' == 1 if `v' == 1
