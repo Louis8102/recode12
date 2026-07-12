@@ -1,5 +1,5 @@
 v 3
-d RECODE12: Standardize 1/2-coded binary variables as labeled 0/1 indicators
+d RECODE12: Standardize 1/2-coded variables as labeled 0/1 indicators
 d
 d Distribution-Date: 20260712
 d Requires: StataNow 19.5
@@ -9,6 +9,7 @@ f recode12.ado
 f recode12.sthlp
 f recode12_example.do
 f recode12_test.do
+f example_data.dta
 f LICENSE
 f CITATION.cff
 f README.md
