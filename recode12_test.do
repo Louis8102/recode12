@@ -42,29 +42,21 @@ assert r(verified) == 1
 drop *_01
 replace male = .a in 4
 recode12 male, yesvalue(1) suffix(_x)
-assert male_x == .a in 4
-assert male_x == 1 if male == 1
-assert male_x == 0 if male == 2
+assert r(n_recoded) == 0
+capture confirm variable male_x
+assert _rc == 111
 
-capture noisily recode12 male, yesvalue(1) suffix(_x)
-assert _rc == 110
-
-recode12 male, yesvalue(1) replace
-assert male == .a in 4
-assert inlist(male, 0, 1) | missing(male)
-assert `"`: value label male'"' == "recode12_NoYes"
-
-* reverse direction also works with replace and preserves extended missing
+* reverse direction works with replace and preserves ordinary system missing
 clear
 input byte x
 1
 2
-.a
+.
 end
 recode12 x, yesvalue(2) replace
 assert x[1] == 0
 assert x[2] == 1
-assert x[3] == .a
+assert x[3] == .
 assert r(yesvalue) == 2
 assert r(verified) == 1
 
@@ -116,7 +108,7 @@ end
 recode12, yesvalue(1)
 assert r(n_recoded) == 0
 
-* empty numeric data and different numeric storage types
+* empty data and extended-missing variables are skipped
 clear
 generate double x = .
 recode12, yesvalue(1)
@@ -128,10 +120,11 @@ input double x float y long z
 .a .b .z
 end
 recode12, yesvalue(1)
-assert r(n_recoded) == 3
-assert x_01 == .a in 3
-assert y_01 == .b in 3
-assert z_01 == .z in 3
+assert r(n_recoded) == 0
+foreach v in x y z {
+    capture confirm variable `v'_01
+    assert _rc == 111
+}
 
 * all output-name conflicts are checked before any variable is generated
 clear

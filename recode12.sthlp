@@ -24,11 +24,10 @@ To retrieve the example dataset and example do-file:
 {title:Description}
 
 {pstd}
-{cmd:recode12} identifies numeric variables whose observed nonmissing values are
-exactly 1 and 2. Numeric missing values, including extended missing values, are
-allowed. Variables containing any other nonmissing value, variables containing
-only one of the two values, and variables containing no nonmissing observations
-are skipped.
+{cmd:recode12} identifies numeric variables whose values are 1, 2, or ordinary
+system missing ({cmd:.}), with both 1 and 2 observed. Variables containing an
+extended missing value ({cmd:.a} through {cmd:.z}), any other numeric value,
+only one of the two categories, or no nonmissing observations are skipped.
 
 {pstd}
 For each eligible variable, {cmd:recode12} maps the source value selected by
@@ -44,8 +43,8 @@ waits for the user to enter 1 or 2 before any variable is generated or changed.
 
 {pstd}
 After recoding, the command verifies every converted observation against the
-selected mapping, confirms that ordinary and extended missing-value codes were
-preserved, and confirms that every nonmissing result is 0 or 1. It reports
+selected mapping, confirms that ordinary system missing values were preserved,
+and confirms that every nonmissing result is 0 or 1. It reports
 success only after all verification checks pass.
 
 {title:Options}

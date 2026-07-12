@@ -9,7 +9,7 @@ use `"`r(fn)'"', clear
 describe
 assert _N == 10000
 recode12, yesvalue(2)
-assert r(n_recoded) == 26
+assert r(n_recoded) == 22
 return list
 tab1 female female_01, missing
 
@@ -21,6 +21,14 @@ assert item01_01 == 0 if item01 == 1
 assert item01_01 == 1 if item01 == 2
 assert item20_01 == 0 if item20 == 1
 assert item20_01 == 1 if item20 == 2
+capture confirm variable white_01
+assert _rc == 111
+capture confirm variable older21_01
+assert _rc == 111
+capture confirm variable married_01
+assert _rc == 111
+capture confirm variable insured_01
+assert _rc == 111
 
 * Variables containing only one category or another valid value are skipped.
 confirm variable only_yes

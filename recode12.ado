@@ -52,7 +52,7 @@ program define recode12, rclass
     local eligible
     local skipped
     quietly foreach v of local varlist {
-        count if !missing(`v') & !inlist(`v', 1, 2)
+        count if !inlist(`v', 1, 2, .)
         local bad = r(N)
         count if `v' == 1
         local n1 = r(N)

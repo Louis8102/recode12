@@ -5,10 +5,10 @@
 
 ## What the command does
 
-`recode12` processes numeric variables whose observed nonmissing values are
-exactly 1 and 2. Variables containing other values, only one category, or no
-nonmissing observations are skipped. Ordinary and extended missing values are
-preserved.
+`recode12` processes numeric variables whose values are 1, 2, or ordinary
+system missing (`.`), with both 1 and 2 observed. Variables containing extended
+missing values (`.a`–`.z`), other numeric values, only one category, or no
+nonmissing observations are skipped.
 
 The command accepts one variable, several variables, or all numeric variables:
 
@@ -104,9 +104,10 @@ common value-label name is returned in `r(value_label)`.
 - `recode12.sthlp` — official Stata help file
 - `recode12.pkg` and `stata.toc` — net-install metadata
 - `example_data.dta` — 10,000-observation simulated example dataset containing
-  26 eligible 1/2-coded binary variables (including `item01`–`item20`) plus
+  22 eligible 1/2-coded binary variables (including `item01`–`item20`) plus
   ineligible coding patterns, multiple numeric storage types, ordinary and
-  extended missing values, labels, continuous values, and a string variable
+  extended missing values (the latter intentionally skipped), labels,
+  continuous values, and a string variable
 - `recode12_examples.do` — reproducible examples
 - `recode12_test.do` — functional and boundary tests
 - `README.md` — distribution overview
