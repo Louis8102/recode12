@@ -1,19 +1,16 @@
 version 19.5
 clear
-input byte(id female employed insured)
-1 1 2 1
-2 2 1 2
-3 1 1 .
-4 2 2 1
-end
+set more off
 
-label variable female   "Sex: 1 Female, 2 Male"
-label variable employed "Employment: 1 No, 2 Yes"
-label variable insured  "Insurance: 1 No, 2 Yes"
+use example_data.dta, clear
 
-* Noninteractive use recommended for reproducible do-files.
+* Source 1 means Yes for female.
 recode12 female, yesvalue(1)
-recode12 employed insured, yesvalue(2)
 
-list, separator(0)
+* Source 2 means Yes for these No/Yes propositions.
+recode12 employed owns_home uses_smartphone, yesvalue(2)
+
+list id female female_01 employed employed_01 owns_home owns_home_01 ///
+    uses_smartphone uses_smartphone_01 in 1/10, separator(0)
+
 return list
