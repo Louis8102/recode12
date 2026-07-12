@@ -1,6 +1,13 @@
 v 3
 d recode12: Standardize 1/2-coded binary variables as labeled 0/1 indicators
 d
+d The command accepts one variable, several variables, or scans all numeric
+d variables. When no mapping option is supplied, it displays an interactive
+d two-rule menu; rule 1 (the default) maps source 1 to No/0 and source 2 to
+d Yes/1. Every conversion is verified against the selected mapping before
+d success is reported. Ancillary files include a 10,000-observation example
+d dataset with 26 eligible 1/2-coded variables.
+d
 d Distribution-Date: 20260712
 d Author: Hao Ma
 d Support: shouhuoxiwang2021@gmail.com

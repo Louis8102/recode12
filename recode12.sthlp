@@ -33,19 +33,28 @@ are skipped.
 {pstd}
 For each eligible variable, {cmd:recode12} maps the source value selected by
 {opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
-values, and assigns the value label 0 {it:No} and 1 {it:Yes}. The default is
-{cmd:yesvalue(1)}. By default, it creates a new byte variable and leaves the
-source variable unchanged.
+values, and assigns the value label 0 {it:No} and 1 {it:Yes}. If no mapping is
+specified, the user chooses it from the on-screen menu. By default, the command
+creates a new byte variable and leaves the source variable unchanged.
 
 {pstd}
 If {it:varlist} is omitted, all numeric variables in the dataset are examined.
+If {opt yesvalue()} is omitted, {cmd:recode12} displays two mapping rules and
+waits for the user to enter 1 or 2 before any variable is generated or changed.
+
+{pstd}
+After recoding, the command verifies every converted observation against the
+selected mapping, confirms that ordinary and extended missing-value codes were
+preserved, and confirms that every nonmissing result is 0 or 1. It reports
+success only after all verification checks pass.
 
 {title:Options}
 
 {phang}
-{opt yesvalue(#)} specifies which source value becomes 1 ({it:Yes}). The
-argument must be 1 or 2. The default is {cmd:yesvalue(1)}. Specify
-{cmd:yesvalue(2)} to map source value 2 to 1 and source value 1 to 0.
+{opt yesvalue(#)} bypasses the interactive menu and specifies which source
+value becomes 1 ({it:Yes}). The argument must be 1 or 2. Specify
+{cmd:yesvalue(1)} to map source 1 to Yes/1, or {cmd:yesvalue(2)} to map source 2
+to Yes/1. This option is recommended in do-files and batch jobs.
 
 {phang}
 {opt suffix(name)} specifies the suffix for generated variables. The default is
@@ -86,12 +95,30 @@ supplied with this package can be loaded as follows:
 {phang2}{cmd:. use example_data.dta, clear}{p_end}
 {phang2}{cmd:. recode12}{p_end}
 
+{pstd}
+With no {opt yesvalue()} option, the screen displays:
+
+{phang2}{cmd:Please choose the mapping rule:}{p_end}
+{phang2}{cmd:1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)}{p_end}
+{phang2}{cmd:2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)}{p_end}
+{phang2}{cmd:Enter 1 or 2 [default 1]:}{p_end}
+
+{pstd}
+Pressing Enter without typing a number selects rule 1: source 1 becomes No/0
+and source 2 becomes Yes/1.
+
 {phang2}{cmd:. recode12 married employed insured}{p_end}
-{phang2}{cmd:. recode12}{p_end}
+{phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
 {phang2}{cmd:. recode12 male white married, suffix(_bin)}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) suffix(_male)}{p_end}
 {phang2}{cmd:. recode12 married employed, replace}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
+
+{pstd}
+For {cmd:yesvalue(1)}, the command displays
+{cmd:mapping: source 1 -> 1 (Yes); source 2 -> 0 (No)}. For
+{cmd:yesvalue(2)}, it displays
+{cmd:mapping: source 1 -> 0 (No); source 2 -> 1 (Yes)}.
 
 {title:Stored results}
 
@@ -101,6 +128,7 @@ supplied with this package can be loaded as follows:
 {synoptset 20 tabbed}{...}
 {synopt:{cmd:r(n_recoded)}}number of variables recoded{p_end}
 {synopt:{cmd:r(yesvalue)}}source value mapped to 1 ({it:Yes}){p_end}
+{synopt:{cmd:r(verified)}}1 if all post-recode verification checks passed{p_end}
 {synopt:{cmd:r(recoded)}}generated or replaced variables{p_end}
 {synopt:{cmd:r(source)}}eligible source variables{p_end}
 {synopt:{cmd:r(skipped)}}examined variables not meeting the rule{p_end}

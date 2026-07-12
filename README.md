@@ -10,8 +10,8 @@ For every numeric variable requested, `recode12` verifies that:
 - both nonmissing values 1 and 2 are observed; and
 - no other nonmissing numeric value is observed.
 
-With the default `yesvalue(1)`, variables satisfying both conditions are mapped
-as follows:
+With `yesvalue(1)` or on-screen choice 2, variables satisfying both conditions
+are mapped as follows:
 
 | Source value | Result | Displayed label |
 |---:|---:|---|
@@ -27,8 +27,29 @@ By default, new byte variables are generated with suffix `_01`; source
 variables remain unchanged. The `replace` option must be specified explicitly
 to change source variables in place.
 
-Coding direction is user-selectable. `yesvalue(1)` maps source value 1 to
-Yes/1; `yesvalue(2)` maps source value 2 to Yes/1 and source value 1 to No/0.
+Coding direction is user-selectable. If `yesvalue()` is omitted, the command
+displays this menu and waits for the user's choice before processing data:
+
+```text
+Please choose the mapping rule:
+
+1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)
+2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)
+
+Enter 1 or 2 [default 1]:
+```
+
+Pressing Enter selects rule 1, the default: source 1 becomes No/0 and source 2
+becomes Yes/1.
+
+For reproducible do-files and batch jobs, `yesvalue(1)` bypasses the menu and
+maps source 1 to Yes/1; `yesvalue(2)` maps source 2 to Yes/1. In both directions,
+the resulting value label is 0 `No` and 1 `Yes`.
+
+After processing, the command verifies every converted observation against the
+selected rule, checks that ordinary and extended missing-value codes were
+preserved, and confirms that every nonmissing result is 0 or 1. It displays a
+verification-passed message only when all checks succeed.
 
 ## Installation
 
@@ -50,7 +71,7 @@ When working from the distribution directory, type:
 
 ```stata
 use example_data.dta, clear
-recode12
+recode12, yesvalue(2)
 return list
 ```
 
@@ -83,8 +104,9 @@ Common goals can therefore be expressed directly:
 
 | Goal | Command |
 |---|---|
-| Scan all numeric variables; source 1 becomes Yes/1 | `recode12` |
-| Recode only selected variables | `recode12 female married employed` |
+| Scan all numeric variables and choose on screen | `recode12` |
+| Recode one variable and choose on screen | `recode12 female` |
+| Recode several variables and choose on screen | `recode12 female married employed` |
 | Source 2 becomes Yes/1 | `recode12 female, yesvalue(2)` |
 | Use a custom suffix | `recode12 female, suffix(_bin)` |
 | Source 2 becomes Yes/1 with a custom suffix | `recode12 female, yesvalue(2) suffix(_male)` |
@@ -105,15 +127,17 @@ the substantive meaning of a variable and does not rewrite its variable label.
 `recode12` returns the number of converted variables in `r(n_recoded)` and the
 converted, source, and skipped variable lists in `r(recoded)`, `r(source)`, and
 `r(skipped)`. The selected source value mapped to Yes/1 is returned in
-`r(yesvalue)`, and the common value-label name is returned in `r(value_label)`.
+`r(yesvalue)`, successful verification is returned as `r(verified)=1`, and the
+common value-label name is returned in `r(value_label)`.
 
 ## Distribution files
 
 - `recode12.ado` — command implementation
 - `recode12.sthlp` — official Stata help file
 - `recode12.pkg` and `stata.toc` — net-install metadata
-- `example_data.dta` — 10,000-observation simulated example dataset covering
-  eligible and ineligible coding patterns, numeric storage types, ordinary and
+- `example_data.dta` — 10,000-observation simulated example dataset containing
+  26 eligible 1/2-coded binary variables (including `item01`–`item20`) plus
+  ineligible coding patterns, multiple numeric storage types, ordinary and
   extended missing values, labels, continuous values, and a string variable
 - `recode12_examples.do` — reproducible examples
 - `recode12_test.do` — functional and boundary tests
