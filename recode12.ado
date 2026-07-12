@@ -10,7 +10,7 @@ program define recode12, rclass
         local choice
         while !inlist(`"`choice'"', "1", "2") {
             display as txt "Enter 1 or 2 [default 1]:" _continue
-            display _request(choice)
+            display _request(_choice)
             if `"`choice'"' == "" local choice 1
             if !inlist(`"`choice'"', "1", "2") {
                 di as err "Please enter either 1 or 2."

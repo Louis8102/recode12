@@ -5,30 +5,20 @@
 
 ## What the command does
 
-For every numeric variable requested, `recode12` verifies that:
+`recode12` processes numeric variables whose observed nonmissing values are
+exactly 1 and 2. Variables containing other values, only one category, or no
+nonmissing observations are skipped. Ordinary and extended missing values are
+preserved.
 
-- both nonmissing values 1 and 2 are observed; and
-- no other nonmissing numeric value is observed.
+The command accepts one variable, several variables, or all numeric variables:
 
-With `yesvalue(1)` or on-screen choice 2, variables satisfying both conditions
-are mapped as follows:
+```stata
+recode12 female
+recode12 female married employed
+recode12
+```
 
-| Source value | Result | Displayed label |
-|---:|---:|---|
-| 1 | 1 | Yes |
-| 2 | 0 | No |
-| `.`, `.a`–`.z` | unchanged | missing |
-
-Variables containing only 1, only 2, only missing values, or any other
-nonmissing value are skipped. If no varlist is supplied, the command examines
-all numeric variables and ignores string variables.
-
-By default, new byte variables are generated with suffix `_01`; source
-variables remain unchanged. The `replace` option must be specified explicitly
-to change source variables in place.
-
-Coding direction is user-selectable. If `yesvalue()` is omitted, the command
-displays this menu and waits for the user's choice before processing data:
+If `yesvalue()` is omitted, the user chooses the mapping before processing:
 
 ```text
 Please choose the mapping rule:
@@ -39,17 +29,13 @@ Please choose the mapping rule:
 Enter 1 or 2 [default 1]:
 ```
 
-Pressing Enter selects rule 1, the default: source 1 becomes No/0 and source 2
-becomes Yes/1.
+Pressing Enter selects rule 1. In a do-file or batch job, bypass the menu with
+`yesvalue(1)` or `yesvalue(2)`.
 
-For reproducible do-files and batch jobs, `yesvalue(1)` bypasses the menu and
-maps source 1 to Yes/1; `yesvalue(2)` maps source 2 to Yes/1. In both directions,
-the resulting value label is 0 `No` and 1 `Yes`.
-
-After processing, the command verifies every converted observation against the
-selected rule, checks that ordinary and extended missing-value codes were
-preserved, and confirms that every nonmissing result is 0 or 1. It displays a
-verification-passed message only when all checks succeed.
+By default, new byte variables are created with suffix `_01`; source variables
+remain unchanged. Use `suffix()` to choose another suffix or `replace` to modify
+eligible source variables in place. Every conversion is verified against the
+selected mapping before success is reported.
 
 ## Installation
 
@@ -82,25 +68,7 @@ them from GitHub with:
 net get recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
 ```
 
-To examine only named variables and choose another suffix:
-
-```stata
-recode12 female married employed insured, suffix(_bin)
-```
-
-To make the category originally coded 2 the Yes/1 category:
-
-```stata
-recode12 female, yesvalue(2) suffix(_male)
-```
-
-To overwrite eligible source variables intentionally:
-
-```stata
-recode12 married employed insured, replace
-```
-
-Common goals can therefore be expressed directly:
+Common goals:
 
 | Goal | Command |
 |---|---|

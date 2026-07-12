@@ -1,6 +1,7 @@
 version 16.0
 clear all
 set more off
+set varabbrev off
 
 findfile example_data.dta
 use `"`r(fn)'"', clear
