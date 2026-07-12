@@ -1,0 +1,10 @@
+v 3
+d recode12: Standardize 1/2-coded binary variables as labeled 0/1 indicators
+d
+d Distribution-Date: 20260712
+d Author: Hao Ma
+d Support: shouhuoxiwang2021@gmail.com
+f recode12.ado
+f recode12.sthlp
+f example_data.dta
+f recode12_examples.do
