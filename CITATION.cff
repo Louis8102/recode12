@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "recode12: A Stata command for standardizing 1/2-coded binary variables as labeled 0/1 indicators"
+type: software
+authors:
+  - family-names: "Ma"
+    given-names: "Hao"
+email: "shouhuoxiwang2027@gmail.com"
+version: 1.0.3
+date-released: 2026-07-12
+url: "https://github.com/Louis8102/recode12"
+license: MIT
