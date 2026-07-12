@@ -1,4 +1,4 @@
-# recode12 1.0.3
+# recode12 1.0.4
 
 ## Overview
 
@@ -77,7 +77,7 @@ Enter rule 1 or 2 [default 1]:
 
 ## Output and options
 
-By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. Generated variables receive the shared value label `recode12_NoYes`, which defines 0 as No and 1 as Yes.
+By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. The new variable keeps the source variable's substantive label and appends `(0/1 indicator)`, making the transformed variable easy to distinguish. Generated variables receive the shared value label `recode12_NoYes`, which defines 0 as No and 1 as Yes.
 
 ```stata
 recode12 married employed, yesvalue(2) suffix(_indicator)
@@ -103,7 +103,7 @@ After recoding, the command verifies the mapping, preservation of ordinary syste
 
 If you use `recode12` in published work, please cite:
 
-> Ma, Hao. 2026. “recode12: A Stata command for standardizing 1/2-coded variables as labeled 0/1 indicators.” Version 1.0.3.
+> Ma, Hao. 2026. “recode12: A Stata command for standardizing 1/2-coded variables as labeled 0/1 indicators.” Version 1.0.4.
 
 GitHub-compatible citation metadata are provided in [`CITATION.cff`](CITATION.cff).
 
