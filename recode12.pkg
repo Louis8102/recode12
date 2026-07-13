@@ -10,6 +10,3 @@ f recode12.sthlp
 f recode12_example.do
 f recode12_test.do
 f example_data.dta
-f LICENSE
-f CITATION.cff
-f README.md
