@@ -32,8 +32,7 @@ only one of the two categories, or no nonmissing observations are skipped.
 {pstd}
 For each eligible variable, {cmd:recode12} maps the source value selected by
 {opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
-values, and assigns 0/1 value labels consistent with the source categories. If
-the source has no value label, 0 is labeled {it:No} and 1 {it:Yes}. If no mapping
+values, and assigns the value label 0 {it:No} and 1 {it:Yes}. If no mapping
 is specified, the user chooses it from the on-screen menu. By default, the command
 creates a new byte variable and leaves the source variable unchanged.
 
@@ -74,7 +73,7 @@ attached variable and value labels, users should normally retain the default beh
 The command determines eligibility from values, not from the meaning of a
 variable. The category selected by {opt yesvalue()} becomes 1 and the other
 category becomes 0. When the source values have category labels, those meanings
-are preserved in the generated 0/1 value label.
+are stated explicitly in the generated variable label.
 
 {pstd}
 For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
@@ -84,9 +83,16 @@ generated variable states the resulting coding explicitly, for example
 {it:Sex (0=Male, 1=Female)}.
 
 {pstd}
-The command creates a separate value label for each converted variable so that
-category meanings remain visible after recoding. The names of these labels are
-returned in {cmd:r(value_label)}.
+Generated variables use the shared value label {cmd:recode12_NoYes}, defining
+0 as {it:No} and 1 as {it:Yes}. Its name is returned in {cmd:r(value_label)}.
+
+{pstd}
+Only after every post-recode check passes, the command creates or updates the
+string variable {cmd:recode12_status} and fills every observation with
+{it:confirmed}. If verification fails, the command reports an error and does
+not write {it:confirmed}. A preexisting variable with this name is reused only
+when it was previously created by {cmd:recode12}; otherwise the command stops
+to avoid overwriting user data.
 
 {title:Examples}
 
@@ -109,11 +115,11 @@ With no {opt yesvalue()} option, the screen displays:
 Pressing Enter selects rule 1: source 1 becomes No/0 and source 2 becomes
 Yes/1.
 
-{phang2}{cmd:. recode12 married employed insured}{p_end}
+{phang2}{cmd:. recode12 employed owns_home insured}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
-{phang2}{cmd:. recode12 male white married, suffix(_bin)}{p_end}
+{phang2}{cmd:. recode12 white veteran owns_car, suffix(_bin)}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) suffix(_01)}{p_end}
-{phang2}{cmd:. recode12 married employed, replace}{p_end}
+{phang2}{cmd:. recode12 employed owns_home, replace}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
 
 {pstd}
@@ -135,6 +141,7 @@ For {cmd:yesvalue(1)}, the command displays
 {synopt:{cmd:r(source)}}eligible source variables{p_end}
 {synopt:{cmd:r(skipped)}}examined variables not meeting the rule{p_end}
 {synopt:{cmd:r(value_label)}}name of the attached value label{p_end}
+{synopt:{cmd:r(status_variable)}}name of the confirmation variable{p_end}
 
 {title:Author}
 

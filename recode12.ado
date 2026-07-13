@@ -77,6 +77,18 @@ program define recode12, rclass
         else local yesvalue 1
     }
 
+    local statusvar "recode12_status"
+    capture confirm variable `statusvar'
+    if !_rc {
+        local statuslabel : variable label `statusvar'
+        local statustype : type `statusvar'
+        if substr("`statustype'", 1, 3) != "str" | ///
+            `"`statuslabel'"' != "recode12 verification status" {
+            di as err "variable `statusvar' already exists and was not created by recode12"
+            exit 110
+        }
+    }
+
     if `"`replace'"' == "" {
         foreach v of local eligible {
             local new `v'`suffix'
@@ -84,9 +96,19 @@ program define recode12, rclass
         }
     }
 
+    local vallab "recode12_NoYes"
+    capture quietly label list `vallab'
+    if _rc label define `vallab' 0 "No" 1 "Yes"
+    else {
+        local lab0 : label `vallab' 0
+        local lab1 : label `vallab' 1
+        if `"`lab0'"' != "No" | `"`lab1'"' != "Yes" {
+            di as err "value label `vallab' already exists with incompatible definitions"
+            exit 110
+        }
+    }
+
     local recoded
-    local used_labels
-    local labseq 0
     if `yesvalue' == 1 {
         di as txt "mapping: source 1 -> 1 (Yes); source 2 -> 0 (No)"
     }
@@ -115,16 +137,6 @@ program define recode12, rclass
                 local one  `"`cat2'"'
             }
         }
-        local found 0
-        while !`found' {
-            local ++labseq
-            local vallab "recode12_`labseq'"
-            capture quietly label list `vallab'
-            if _rc local found 1
-        }
-        label define `vallab' 0 `"`zero'"' 1 `"`one'"'
-        local used_labels `used_labels' `vallab'
-
         local vl : variable label `v'
         if `"`vl'"' == "" local vl "`v'"
         local codepos = strpos(`"`vl'"', " (1=")
@@ -169,10 +181,16 @@ program define recode12, rclass
         }
     }
 
+    capture confirm variable `statusvar'
+    if _rc generate str9 `statusvar' = "confirmed"
+    else quietly replace `statusvar' = "confirmed"
+    label variable `statusvar' "recode12 verification status"
+
     local n_recoded : word count `recoded'
     di as txt "standardized `n_recoded' variable(s):" as result " `recoded'"
     di as txt "verification passed: all recoded values match the selected mapping rule"
-    return local value_label `"`used_labels'"'
+    return local value_label "`vallab'"
+    return local status_variable "`statusvar'"
     return scalar yesvalue = `yesvalue'
     return scalar verified = 1
     return local skipped `"`skipped'"'

@@ -19,9 +19,12 @@ assert y_01 == 1 if y == 1
 assert y_01 == 0 if y == 2
 assert n_recoded == 2
 assert `"`: variable label x_01'"' == "x (0=No, 1=Yes)"
+assert recode12_status == "confirmed"
+assert `"`: variable label recode12_status'"' == "recode12 verification status"
 
 drop x_01 y_01
 recode12 x, yesvalue(2) suffix(_bin)
+assert recode12_status == "confirmed"
 assert x_bin == 0 if x == 1
 assert x_bin == 1 if x == 2
 assert missing(x_bin) if missing(x)
