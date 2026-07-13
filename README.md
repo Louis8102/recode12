@@ -77,7 +77,7 @@ Enter rule 1 or 2 [default 1]:
 
 ## Output and options
 
-By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. Every generated variable uses the shared value label `recode12_NoYes`, defining 0 as `No` and 1 as `Yes`. If the source has value labels for 1 and 2, the generated variable label also states the substantive coding explicitly. For example, `Children (1=No children, 2=Has children)` becomes `Children (0=No children, 1=Has children)` under `yesvalue(2)`.
+By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. Every generated variable uses the shared value label `recode12_NoYes`, defining 0 as `No` and 1 as `Yes`. Its variable label begins with `Recoded`, names the source category mapped to Yes/1, and ends with `(0=No; 1=Yes)`. For example, under `yesvalue(2)`, `Children (1=No children, 2=Has children)` produces `Recoded Has children (0=No; 1=Yes)`.
 
 ```stata
 recode12 employed owns_home, yesvalue(2) suffix(_indicator)

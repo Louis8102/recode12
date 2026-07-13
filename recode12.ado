@@ -137,11 +137,17 @@ program define recode12, rclass
                 local one  `"`cat2'"'
             }
         }
-        local vl : variable label `v'
-        if `"`vl'"' == "" local vl "`v'"
-        local codepos = strpos(`"`vl'"', " (1=")
-        if `codepos' > 0 local vl = substr(`"`vl'"', 1, `codepos' - 1)
-        local newvl `"`vl' (0=`zero', 1=`one')"'
+        if `"`source_vallab'"' != "" {
+            if `yesvalue' == 1 local target `"`cat1'"'
+            else local target `"`cat2'"'
+        }
+        else {
+            local target : variable label `v'
+            if `"`target'"' == "" local target "`v'"
+            local codepos = strpos(`"`target'"', " (1=")
+            if `codepos' > 0 local target = substr(`"`target'"', 1, `codepos' - 1)
+        }
+        local newvl `"Recoded `target' (0=No; 1=Yes)"'
         local newvl = ustrleft(`"`newvl'"', 80)
 
         if `"`replace'"' != "" {

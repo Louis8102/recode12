@@ -79,8 +79,9 @@ are stated explicitly in the generated variable label.
 For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
 generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
 Male and 0 for Female. {cmd:recode12} does not infer category meaning. A
-generated variable states the resulting coding explicitly, for example
-{it:Sex (0=Male, 1=Female)}.
+generated variable begins with {it:Recoded}, names the category mapped to
+Yes/1, and states the common coding explicitly. For example,
+{cmd:yesvalue(1)} produces {it:Recoded Female (0=No; 1=Yes)}.
 
 {pstd}
 Generated variables use the shared value label {cmd:recode12_NoYes}, defining
