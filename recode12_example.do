@@ -1,6 +1,7 @@
 version 19.5
 clear
 set more off
+set varabbrev off
 
 use example_data.dta, clear
 

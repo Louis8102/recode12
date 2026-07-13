@@ -1,6 +1,7 @@
 version 19.5
 clear all
 set more off
+set varabbrev off
 
 clear
 set obs 6
@@ -18,7 +19,7 @@ assert missing(x_01) if missing(x)
 assert y_01 == 1 if y == 1
 assert y_01 == 0 if y == 2
 assert n_recoded == 2
-assert `"`: variable label x_01'"' == "Recoded x (0=No; 1=Yes)"
+assert `"`: variable label x_01'"' == "Recoded x == 1 (0=No; 1=Yes)"
 assert recode12_status == "confirmed"
 assert `"`: variable label recode12_status'"' == "recode12 verification status"
 
@@ -40,5 +41,14 @@ capture noisily recode12 x
 assert _rc == 198
 capture noisily recode12 x, yesvalue(1) suffix(_z) replace
 assert _rc == 198
+
+clear
+set obs 3
+generate only1 = 1
+recode12 only1, yesvalue(1)
+assert r(n_recoded) == 0
+assert r(verified) == 0
+assert r(yesvalue) == 1
+assert `"`r(status_variable)'"' == ""
 
 display as result "recode12 tests passed"

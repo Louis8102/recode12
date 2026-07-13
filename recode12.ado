@@ -1,4 +1,4 @@
-*! version 1.0.4  12jul2026
+*! version 1.0.0  12jul2026
 program define recode12, rclass
     version 19.5
     syntax [varlist(numeric default=none)] [, YESValue(string) SUFfix(name) REPlace]
@@ -29,8 +29,9 @@ program define recode12, rclass
         return local source ""
         return local recoded ""
         return local value_label ""
-        return scalar yesvalue = .
-        return scalar verified = 1
+        return local status_variable ""
+        return scalar yesvalue = `yesvalue'
+        return scalar verified = 0
         return scalar n_recoded = 0
         exit
     }
@@ -58,8 +59,9 @@ program define recode12, rclass
         return local source ""
         return local recoded ""
         return local value_label ""
-        return scalar yesvalue = .
-        return scalar verified = 1
+        return local status_variable ""
+        return scalar yesvalue = `yesvalue'
+        return scalar verified = 0
         return scalar n_recoded = 0
         exit
     }
@@ -110,30 +112,12 @@ program define recode12, rclass
             local cat1 : label `source_vallab' 1
             local cat2 : label `source_vallab' 2
         }
-        if `"`source_vallab'"' == "" {
-            local zero "No"
-            local one  "Yes"
-        }
-        else {
-            if `yesvalue' == 1 {
-                local zero `"`cat2'"'
-                local one  `"`cat1'"'
-            }
-            else {
-                local zero `"`cat1'"'
-                local one  `"`cat2'"'
-            }
-        }
+        local target
         if `"`source_vallab'"' != "" {
             if `yesvalue' == 1 local target `"`cat1'"'
             else local target `"`cat2'"'
         }
-        else {
-            local target : variable label `v'
-            if `"`target'"' == "" local target "`v'"
-            local codepos = strpos(`"`target'"', " (1=")
-            if `codepos' > 0 local target = substr(`"`target'"', 1, `codepos' - 1)
-        }
+        if `"`target'"' == "" local target "`v' == `yesvalue'"
         local newvl `"Recoded `target' (0=No; 1=Yes)"'
         local newvl = ustrleft(`"`newvl'"', 80)
 

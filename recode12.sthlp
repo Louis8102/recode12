@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  12jul2026}{...}
+{* *! version 1.0.0  12jul2026}{...}
 {vieweralsosee "recode" "help recode"}{...}
 {vieweralsosee "label values" "help label_values"}{...}
 {title:Title}
@@ -11,15 +11,6 @@
 
 {p 8 17 2}
 {cmd:recode12} [{varlist}]{cmd:,} {opt yesvalue(#)} [{opt suffix(name)} {opt replace}]
-
-{title:Installation}
-
-{phang2}{cmd:. net install recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace}{p_end}
-
-{pstd}
-To retrieve the example dataset and example do-file:
-
-{phang2}{cmd:. net get recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace}{p_end}
 
 {title:Description}
 
@@ -52,7 +43,7 @@ success only after all verification checks pass.
 {opt yesvalue(#)} is required and specifies which source value becomes 1
 ({it:Yes}). The argument must be 1 or 2. Specify
 {cmd:yesvalue(1)} to map source 1 to Yes/1, or {cmd:yesvalue(2)} to map source 2
-to Yes/1. This option is recommended in do-files and batch jobs.
+to Yes/1.
 
 {phang}
 {opt suffix(name)} specifies the suffix for generated variables. The default is
@@ -80,6 +71,9 @@ Male and 0 for Female. {cmd:recode12} does not infer category meaning. A
 generated variable begins with {it:Recoded}, names the category mapped to
 Yes/1, and states the common coding explicitly. For example,
 {cmd:yesvalue(1)} produces {it:Recoded Female (0=No; 1=Yes)}.
+If the selected source value has no category label, the generated variable
+label states the numeric condition explicitly, for example
+{it:Recoded x == 1 (0=No; 1=Yes)}.
 
 {pstd}
 Generated variables use the shared value label {cmd:recode12_NoYes}, defining
@@ -91,20 +85,20 @@ string variable {cmd:recode12_status} and fills every observation with
 {it:confirmed}. If verification fails, the command reports an error and does
 not write {it:confirmed}. A preexisting variable with this name is reused only
 when it was previously created by {cmd:recode12}; otherwise the command stops
-to avoid overwriting user data.
+to avoid overwriting user data. This status confirms computational consistency
+with the specified mapping; it does not establish that the user's substantive
+choice of {opt yesvalue()} is correct for the research question.
 
 {title:Examples}
 
 {pstd}
-After retrieving the ancillary files with {cmd:net get}, the example dataset
-supplied with this package can be loaded as follows:
+The example dataset supplied with this package can be loaded as follows:
 
 {phang2}{cmd:. use example_data.dta, clear}{p_end}
-{phang2}{cmd:. recode12, yesvalue(2)}{p_end}
 {phang2}{cmd:. recode12 employed owns_home insured, yesvalue(2)}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
 {phang2}{cmd:. recode12 white veteran owns_car, yesvalue(2) suffix(_bin)}{p_end}
-{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_01)}{p_end}
+{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_male)}{p_end}
 {phang2}{cmd:. recode12 employed owns_home, yesvalue(2) replace}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
 
@@ -122,7 +116,7 @@ For {cmd:yesvalue(1)}, the command displays
 {synoptset 20 tabbed}{...}
 {synopt:{cmd:r(n_recoded)}}number of variables recoded{p_end}
 {synopt:{cmd:r(yesvalue)}}source value mapped to 1 ({it:Yes}){p_end}
-{synopt:{cmd:r(verified)}}1 if all post-recode verification checks passed{p_end}
+{synopt:{cmd:r(verified)}}1 if at least one variable was recoded and all checks passed; otherwise 0{p_end}
 {synopt:{cmd:r(recoded)}}generated or replaced variables{p_end}
 {synopt:{cmd:r(source)}}eligible source variables{p_end}
 {synopt:{cmd:r(skipped)}}examined variables not meeting the rule{p_end}
@@ -142,7 +136,7 @@ If you use {cmd:recode12} in published work, please cite:
 
 {phang}
 Ma, Hao. 2026. {it:recode12: A Stata command for standardizing 1/2-coded
-variables as labeled 0/1 indicators}. Version 1.0.4.
+variables as labeled 0/1 indicators}. Version 1.0.0.
 
 {title:License}
 

@@ -1,4 +1,4 @@
-# recode12 1.0.4
+# recode12 1.0.0
 
 ## Overview
 
@@ -56,7 +56,7 @@ recode12, yesvalue(2)
 
 ## Output and options
 
-By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. Every generated variable uses the shared value label `recode12_NoYes`, defining 0 as `No` and 1 as `Yes`. Its variable label begins with `Recoded`, names the source category mapped to Yes/1, and ends with `(0=No; 1=Yes)`. For example, under `yesvalue(2)`, `Children (1=No children, 2=Has children)` produces `Recoded Has children (0=No; 1=Yes)`.
+By default, `recode12` leaves each source variable unchanged and creates a new byte variable with the neutral suffix `_01`. Every generated variable uses the shared value label `recode12_NoYes`, defining 0 as `No` and 1 as `Yes`. Its variable label begins with `Recoded`, names the source category mapped to Yes/1, and ends with `(0=No; 1=Yes)`. For example, under `yesvalue(2)`, `Children (1=No children, 2=Has children)` produces `Recoded Has children (0=No; 1=Yes)`. If the selected source value has no category label, the generated label states the numeric condition explicitly, such as `Recoded x == 1 (0=No; 1=Yes)`.
 
 ```stata
 recode12 employed owns_home, yesvalue(2) suffix(_indicator)
@@ -70,7 +70,7 @@ recode12 employed owns_home, yesvalue(2) replace
 
 `replace` cannot be combined with `suffix()`.
 
-After recoding, the command verifies the mapping, preservation of ordinary system missing values, and the 0/1 range before reporting success. Only after every check passes, it creates or updates the string variable `recode12_status` and fills it with `confirmed` for every observation. If verification fails, the command reports an error and does not write `confirmed`. Results are returned in `r()`; see `help recode12` for the complete list.
+After recoding, the command verifies the mapping, preservation of ordinary system missing values, and the 0/1 range before reporting success. Only after every check passes, it creates or updates the string variable `recode12_status` and fills it with `confirmed` for every observation. If verification fails, the command reports an error and does not write `confirmed`. This status confirms computational consistency with the specified mapping; it does not establish that the selected direction is substantively correct for the research question. Results are returned in `r()`; see `help recode12` for the complete list.
 
 ## Requirements and verification
 
@@ -82,7 +82,7 @@ After recoding, the command verifies the mapping, preservation of ordinary syste
 
 If you use `recode12` in published work, please cite:
 
-> Ma, Hao. 2026. “recode12: A Stata command for standardizing 1/2-coded variables as labeled 0/1 indicators.” Version 1.0.4.
+> Ma, Hao. 2026. “recode12: A Stata command for standardizing 1/2-coded variables as labeled 0/1 indicators.” Version 1.0.0.
 
 GitHub-compatible citation metadata are provided in [`CITATION.cff`](CITATION.cff).
 
