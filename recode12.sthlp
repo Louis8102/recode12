@@ -10,7 +10,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:recode12} [{varlist}] [{cmd:,} {opt yesvalue(#)} {opt suffix(name)} {opt replace}]
+{cmd:recode12} [{varlist}]{cmd:,} {opt yesvalue(#)} [{opt suffix(name)} {opt replace}]
 
 {title:Installation}
 
@@ -32,15 +32,13 @@ only one of the two categories, or no nonmissing observations are skipped.
 {pstd}
 For each eligible variable, {cmd:recode12} maps the source value selected by
 {opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
-values, and assigns the value label 0 {it:No} and 1 {it:Yes}. If no mapping
-is specified, the user chooses it from the on-screen menu. By default, the command
+values, and assigns the value label 0 {it:No} and 1 {it:Yes}. The required
+{opt yesvalue()} option records the mapping explicitly. By default, the command
 creates a new byte variable and leaves the source variable unchanged.
 
 {pstd}
 If {it:varlist} is omitted, all numeric variables in the dataset are examined.
-If {opt yesvalue()} is omitted, {cmd:recode12} displays two complete recoding
-rules. Rule 1 maps source 1 to No/0 and source 2 to Yes/1. Rule 2 maps source 1
-to Yes/1 and source 2 to No/0.
+The mapping must still be specified with {opt yesvalue()}.
 
 {pstd}
 After recoding, the command verifies every converted observation against the
@@ -51,8 +49,8 @@ success only after all verification checks pass.
 {title:Options}
 
 {phang}
-{opt yesvalue(#)} bypasses the interactive menu and specifies which source
-value becomes 1 ({it:Yes}). The argument must be 1 or 2. Specify
+{opt yesvalue(#)} is required and specifies which source value becomes 1
+({it:Yes}). The argument must be 1 or 2. Specify
 {cmd:yesvalue(1)} to map source 1 to Yes/1, or {cmd:yesvalue(2)} to map source 2
 to Yes/1. This option is recommended in do-files and batch jobs.
 
@@ -102,25 +100,12 @@ After retrieving the ancillary files with {cmd:net get}, the example dataset
 supplied with this package can be loaded as follows:
 
 {phang2}{cmd:. use example_data.dta, clear}{p_end}
-{phang2}{cmd:. recode12}{p_end}
-
-{pstd}
-With no {opt yesvalue()} option, the screen displays:
-
-{phang2}{cmd:Please choose the recoding rule:}{p_end}
-{phang2}{cmd:1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)}{p_end}
-{phang2}{cmd:2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)}{p_end}
-{phang2}{cmd:Enter rule 1 or 2 [default 1]:}{p_end}
-
-{pstd}
-Pressing Enter selects rule 1: source 1 becomes No/0 and source 2 becomes
-Yes/1.
-
-{phang2}{cmd:. recode12 employed owns_home insured}{p_end}
+{phang2}{cmd:. recode12, yesvalue(2)}{p_end}
+{phang2}{cmd:. recode12 employed owns_home insured, yesvalue(2)}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
-{phang2}{cmd:. recode12 white veteran owns_car, suffix(_bin)}{p_end}
+{phang2}{cmd:. recode12 white veteran owns_car, yesvalue(2) suffix(_bin)}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) suffix(_01)}{p_end}
-{phang2}{cmd:. recode12 employed owns_home, replace}{p_end}
+{phang2}{cmd:. recode12 employed owns_home, yesvalue(2) replace}{p_end}
 {phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
 
 {pstd}

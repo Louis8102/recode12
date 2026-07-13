@@ -36,6 +36,8 @@ assert missing(y) in 3
 
 capture noisily recode12 x, yesvalue(3)
 assert _rc == 198
+capture noisily recode12 x
+assert _rc == 198
 capture noisily recode12 x, yesvalue(1) suffix(_z) replace
 assert _rc == 198
 

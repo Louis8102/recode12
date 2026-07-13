@@ -3,7 +3,11 @@ program define recode12, rclass
     version 19.5
     syntax [varlist(numeric default=none)] [, YESValue(string) SUFfix(name) REPlace]
 
-    if `"`yesvalue'"' != "" & !inlist(`"`yesvalue'"', "1", "2") {
+    if `"`yesvalue'"' == "" {
+        di as err "yesvalue() is required; specify yesvalue(1) or yesvalue(2)"
+        exit 198
+    }
+    if !inlist(`"`yesvalue'"', "1", "2") {
         di as err "yesvalue() must be 1 or 2"
         exit 198
     }
@@ -58,23 +62,6 @@ program define recode12, rclass
         return scalar verified = 1
         return scalar n_recoded = 0
         exit
-    }
-
-    if `"`yesvalue'"' == "" {
-        di as txt _newline "Please choose the recoding rule:" _newline
-        di as txt "1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)"
-        di as txt "2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)" _newline
-        local choice
-        while !inlist(`"`choice'"', "1", "2") {
-            display as txt "Enter rule 1 or 2 [default 1]:" _continue
-            display _request(_choice)
-            if `"`choice'"' == "" local choice 1
-            if !inlist(`"`choice'"', "1", "2") {
-                di as err "Please enter either 1 or 2."
-            }
-        }
-        if `"`choice'"' == "1" local yesvalue 2
-        else local yesvalue 1
     }
 
     local statusvar "recode12_status"

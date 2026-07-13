@@ -4,7 +4,7 @@
 
 `recode12` is a Stata module for standardizing variables coded 1/2 as labeled 0/1 indicators. This is a routine but consequential data-management task: inconsistent mappings can reverse the meaning of an indicator and affect summaries, models, and interpretation.
 
-The module identifies eligible variables, applies a user-selected mapping, preserves ordinary system missing values, assigns uniform No/Yes value labels, and verifies the results after recoding. It can process one variable, several variables, or all eligible numeric variables in a dataset. Users may specify the mapping directly for reproducible workflows or select it interactively.
+The module identifies eligible variables, applies an explicitly specified mapping, preserves ordinary system missing values, assigns uniform No/Yes value labels, and verifies the results after recoding. It can process one variable, several variables, or all eligible numeric variables in a dataset. The required `yesvalue()` option records the mapping directly in the command for reproducible workflows.
 
 ## Installation and example data
 
@@ -32,12 +32,12 @@ A variable is eligible for recoding when it is numeric, its nonmissing values co
 
 Variables that do not meet this rule are skipped and left unchanged. Eligibility is determined entirely from the observed values; the module does not infer substantive meaning from a variable's name or label.
 
-## Direct, reproducible use
+## Reproducible use
 
 For do-files, batch jobs, and reproducible analysis, specify which source value should become Yes/1 with `yesvalue()`.
 
 ```stata
-recode12 married employed insured, yesvalue(2)
+recode12 employed owns_home insured, yesvalue(2)
 ```
 
 This maps source 1 to No/0 and source 2 to Yes/1.
@@ -53,27 +53,6 @@ If the variable list is omitted, all numeric variables are examined and only eli
 ```stata
 recode12, yesvalue(2)
 ```
-
-## Interactive use
-
-The module can also be used interactively. Omit `yesvalue()` and choose one of the two complete recoding rules shown on screen:
-
-```stata
-recode12 married employed insured
-```
-
-```text
-Please choose the recoding rule:
-
-1 - Source 1 -> 0 (No);  Source 2 -> 1 (Yes)
-2 - Source 1 -> 1 (Yes); Source 2 -> 0 (No)
-
-Enter rule 1 or 2 [default 1]:
-```
-
-- Rule 1 maps source 1 to No/0 and source 2 to Yes/1.
-- Rule 2 maps source 1 to Yes/1 and source 2 to No/0.
-- Pressing Enter selects rule 1.
 
 ## Output and options
 
