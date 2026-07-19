@@ -1,7 +1,7 @@
 *! version 1.1.0  19jul2026
 program define recode12, rclass
     version 19.5
-    syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) REPlace]
+    syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) REPlace DISPlay]
 
     if `"`yesvalue'"' == "" {
         di as err "yesvalue() is required; specify yesvalue(1) or yesvalue(2)"
@@ -249,16 +249,57 @@ program define recode12, rclass
     local n_recoded : word count `recoded'
     local n_numeric_recoded : word count `numeric_recoded'
     local n_string_recoded : word count `string_recoded'
-    if `n_numeric_recoded' > 0 {
-        di as txt "numeric variables standardized (`n_numeric_recoded'):" ///
-            as result " `numeric_recoded'"
+    if `"`display'"' != "" {
+        di as txt "number of numeric variables standardized: " ///
+            as result `n_numeric_recoded'
+        if `n_numeric_recoded' > 0 {
+            di as txt "names of numeric variables standardized:"
+            local detail_line
+            local detail_count = 0
+            local detail_width = max(20, c(linesize) - 4)
+            foreach name of local numeric_recoded {
+                local candidate = strtrim("`detail_line' `name'")
+                local candidate_length = strlen("`candidate'")
+                if `detail_count' > 0 & ///
+                    (`detail_count' >= 7 | `candidate_length' > `detail_width') {
+                    di as result "    `detail_line'"
+                    local detail_line "`name'"
+                    local detail_count = 1
+                }
+                else {
+                    local detail_line "`candidate'"
+                    local ++detail_count
+                }
+            }
+            if `"`detail_line'"' != "" di as result "    `detail_line'"
+        }
+        else di as txt "names of numeric variables standardized: " as result "none"
+
+        di as txt "number of string variables standardized: " ///
+            as result `n_string_recoded'
+        if `n_string_recoded' > 0 {
+            di as txt "names of string variables standardized:"
+            local detail_line
+            local detail_count = 0
+            local detail_width = max(20, c(linesize) - 4)
+            foreach name of local string_recoded {
+                local candidate = strtrim("`detail_line' `name'")
+                local candidate_length = strlen("`candidate'")
+                if `detail_count' > 0 & ///
+                    (`detail_count' >= 7 | `candidate_length' > `detail_width') {
+                    di as result "    `detail_line'"
+                    local detail_line "`name'"
+                    local detail_count = 1
+                }
+                else {
+                    local detail_line "`candidate'"
+                    local ++detail_count
+                }
+            }
+            if `"`detail_line'"' != "" di as result "    `detail_line'"
+        }
+        else di as txt "names of string variables standardized: " as result "none"
     }
-    else di as txt "numeric variables standardized (0): none"
-    if `n_string_recoded' > 0 {
-        di as txt "string variables standardized (`n_string_recoded'):" ///
-            as result " `string_recoded'"
-    }
-    else di as txt "string variables standardized (0): none"
     di as txt "verification passed: all recoded values match the selected mapping rule"
     return local value_label "`vallab'"
     return local status_variable "`statusvar'"

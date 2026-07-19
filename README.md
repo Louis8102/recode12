@@ -93,7 +93,13 @@ For a string source, `replace` changes the variable to numeric while retaining i
 
 After recoding, the command verifies the selected mapping, preservation of missing observations, and the 0/1 range. Only after every check passes does it create or update `recode12_status` with `confirmed`. This confirms computational consistency, not the substantive suitability of the chosen direction.
 
-The Results window reports numeric and string-source variables separately, including the number standardized and their resulting variable names. Under `replace`, the displayed names are the retained source-variable names.
+By default, the Results window displays only the mapping rule and the verification result. Add `display` to report numeric and string-source results separately, including the number standardized and their resulting variable names:
+
+```stata
+recode12, yesvalue(2) display
+```
+
+In `display` mode, resulting names are printed in groups of no more than seven per line. Under `replace`, the displayed names are the retained source-variable names. The same detailed results are always available in `r()` whether or not `display` is specified.
 
 ## Requirements and verification
 

@@ -11,7 +11,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:recode12} [{varlist}]{cmd:,} {opt yesvalue(#)} [{opt suffix(name)} {opt replace}]
+{cmd:recode12} [{varlist}]{cmd:,} {opt yesvalue(#)} [{opt suffix(name)} {opt replace} {opt display}]
 
 {title:Description}
 
@@ -62,9 +62,10 @@ selected mapping and confirms that every nonmissing result is 0 or 1. It
 reports success only after all verification checks pass.
 
 {pstd}
-The Results window reports numeric and string-source variables separately,
-including the number standardized and their resulting variable names. In
-{opt replace} mode, these are the retained source-variable names.
+By default, the Results window displays only the mapping rule and the
+verification result. Detailed numeric and string-source counts and resulting
+variable names are available with {opt display} and are always stored in
+{cmd:r()}.
 
 {title:Options}
 
@@ -84,6 +85,11 @@ values instead of creating a new variable. For eligible string variables this
 changes the source variable from string to numeric while retaining its name.
 {opt replace} may not be combined with {opt suffix()} and should be used only
 when the original values are no longer needed.
+
+{phang}
+{opt display} reports the number and resulting names of standardized numeric
+and string-source variables. Names are printed in groups of no more than seven
+per line. In {opt replace} mode, these are the retained source-variable names.
 
 {title:Remarks}
 

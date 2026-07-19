@@ -93,7 +93,7 @@ set obs 4
 generate n = cond(mod(_n,2),1,2)
 generate str8 s = cond(mod(_n,2),"First","Second")
 generate z = _n
-recode12, yesvalue(1)
+recode12, yesvalue(1) display
 assert n_01 == 1 if n == 1
 assert n_01 == 0 if n == 2
 assert s_01 == 1 if s == "First"
