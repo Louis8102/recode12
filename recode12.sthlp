@@ -61,6 +61,11 @@ After recoding, the command verifies every converted observation against the
 selected mapping and confirms that every nonmissing result is 0 or 1. It
 reports success only after all verification checks pass.
 
+{pstd}
+The Results window reports numeric and string-source variables separately,
+including the number standardized and their resulting variable names. In
+{opt replace} mode, these are the retained source-variable names.
+
 {title:Options}
 
 {phang}
@@ -167,6 +172,10 @@ Overwrite eligible source variables:
 {synopt:{cmd:r(source)}}all eligible source variables{p_end}
 {synopt:{cmd:r(numeric_source)}}eligible numeric source variables{p_end}
 {synopt:{cmd:r(string_source)}}eligible string source variables{p_end}
+{synopt:{cmd:r(numeric_recoded)}}generated or replaced numeric variables{p_end}
+{synopt:{cmd:r(string_recoded)}}generated or replaced string-source variables{p_end}
+{synopt:{cmd:r(n_numeric_recoded)}}number of numeric variables recoded{p_end}
+{synopt:{cmd:r(n_string_recoded)}}number of string-source variables recoded{p_end}
 {synopt:{cmd:r(skipped)}}examined variables not meeting the applicable rule{p_end}
 {synopt:{cmd:r(value_label)}}name of the attached value label{p_end}
 {synopt:{cmd:r(status_variable)}}name of the confirmation variable{p_end}

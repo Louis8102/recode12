@@ -93,6 +93,8 @@ For a string source, `replace` changes the variable to numeric while retaining i
 
 After recoding, the command verifies the selected mapping, preservation of missing observations, and the 0/1 range. Only after every check passes does it create or update `recode12_status` with `confirmed`. This confirms computational consistency, not the substantive suitability of the chosen direction.
 
+The Results window reports numeric and string-source variables separately, including the number standardized and their resulting variable names. Under `replace`, the displayed names are the retained source-variable names.
+
 ## Requirements and verification
 
 - StataNow 19.5

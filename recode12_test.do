@@ -23,6 +23,10 @@ assert missing(x_01) if missing(x)
 assert y_01 == 1 if y == 1
 assert y_01 == 0 if y == 2
 assert r(n_recoded) == 2
+assert r(n_numeric_recoded) == 2
+assert r(n_string_recoded) == 0
+assert `"`r(numeric_recoded)'"' == "x_01 y_01"
+assert `"`r(string_recoded)'"' == ""
 assert `"`r(numeric_source)'"' == "x y"
 assert `"`r(string_source)'"' == ""
 assert `"`: variable label x_01'"' == "Recoded x == 1 (0=No; 1=Yes)"
@@ -52,6 +56,10 @@ assert fruit_01 == 0 if ustrtrim(fruit) == "Plum"
 assert fruit_01 == 1 if ustrtrim(fruit) == "Peach"
 assert missing(fruit_01) if inlist(ustrtrim(fruit), "", ".")
 assert r(n_recoded) == 2
+assert r(n_numeric_recoded) == 0
+assert r(n_string_recoded) == 2
+assert `"`r(numeric_recoded)'"' == ""
+assert `"`r(string_recoded)'"' == "exam_01 fruit_01"
 assert `"`r(numeric_source)'"' == ""
 assert `"`r(string_source)'"' == "exam fruit"
 assert `"`r(skipped)'"' == "onlyone threecat allblank ascii3 dotm3 ascii_n3 dotn3"
@@ -72,6 +80,10 @@ assert numeric12_01 == 1 if numeric12 == 2
 assert string12_01 == 0 if string12 == "No"
 assert string12_01 == 1 if string12 == "Yes"
 assert r(n_recoded) == 2
+assert r(n_numeric_recoded) == 1
+assert r(n_string_recoded) == 1
+assert `"`r(numeric_recoded)'"' == "numeric12_01"
+assert `"`r(string_recoded)'"' == "string12_01"
 assert `"`r(numeric_source)'"' == "numeric12"
 assert `"`r(string_source)'"' == "string12"
 
@@ -101,6 +113,10 @@ assert s == 0 if mod(_n,2) & _n<5
 assert s == 1 if !mod(_n,2) & _n<5
 assert missing(n) in 5
 assert missing(s) in 5
+assert r(n_numeric_recoded) == 1
+assert r(n_string_recoded) == 1
+assert `"`r(numeric_recoded)'"' == "n"
+assert `"`r(string_recoded)'"' == "s"
 
 capture noisily recode12 n, yesvalue(3)
 assert _rc == 198
@@ -116,6 +132,8 @@ generate str8 onlys = "One"
 recode12 only1 onlys, yesvalue(1)
 assert r(n_recoded) == 0
 assert r(verified) == 0
+assert r(n_numeric_recoded) == 0
+assert r(n_string_recoded) == 0
 assert r(yesvalue) == 1
 assert `"`r(status_variable)'"' == ""
 

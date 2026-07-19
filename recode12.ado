@@ -29,11 +29,15 @@ program define recode12, rclass
         return local source ""
         return local numeric_source ""
         return local string_source ""
+        return local numeric_recoded ""
+        return local string_recoded ""
         return local recoded ""
         return local value_label ""
         return local status_variable ""
         return scalar yesvalue = `yesvalue'
         return scalar verified = 0
+        return scalar n_numeric_recoded = 0
+        return scalar n_string_recoded = 0
         return scalar n_recoded = 0
         exit
     }
@@ -91,11 +95,15 @@ program define recode12, rclass
         return local source ""
         return local numeric_source ""
         return local string_source ""
+        return local numeric_recoded ""
+        return local string_recoded ""
         return local recoded ""
         return local value_label ""
         return local status_variable ""
         return scalar yesvalue = `yesvalue'
         return scalar verified = 0
+        return scalar n_numeric_recoded = 0
+        return scalar n_string_recoded = 0
         return scalar n_recoded = 0
         exit
     }
@@ -132,13 +140,15 @@ program define recode12, rclass
     }
 
     if `yesvalue' == 1 {
-        di as txt "mapping: source category 1 -> 1 (Yes); source category 2 -> 0 (No)"
+        di as txt "mapping rule: source category 1 -> 1 (Yes); source category 2 -> 0 (No)"
     }
     else {
-        di as txt "mapping: source category 1 -> 0 (No); source category 2 -> 1 (Yes)"
+        di as txt "mapping rule: source category 1 -> 0 (No); source category 2 -> 1 (Yes)"
     }
 
     local recoded
+    local numeric_recoded
+    local string_recoded
     foreach v of local eligible {
         capture confirm numeric variable `v'
         if !_rc {
@@ -169,6 +179,7 @@ program define recode12, rclass
                 assert missing(`v') if missing(`original')
                 assert inlist(`v', 0, 1) | missing(`v')
                 local recoded `recoded' `v'
+                local numeric_recoded `numeric_recoded' `v'
             }
             else {
                 local new `v'`suffix'
@@ -179,6 +190,7 @@ program define recode12, rclass
                 assert missing(`new') if missing(`v')
                 assert inlist(`new', 0, 1) | missing(`new')
                 local recoded `recoded' `new'
+                local numeric_recoded `numeric_recoded' `new'
             }
         }
         else {
@@ -215,6 +227,7 @@ program define recode12, rclass
                 assert missing(`v') if missing(`sourcecode')
                 assert inlist(`v', 0, 1) | missing(`v')
                 local recoded `recoded' `v'
+                local string_recoded `string_recoded' `v'
             }
             else {
                 local new `v'`suffix'
@@ -225,6 +238,7 @@ program define recode12, rclass
                 assert missing(`new') if missing(`sourcecode')
                 assert inlist(`new', 0, 1) | missing(`new')
                 local recoded `recoded' `new'
+                local string_recoded `string_recoded' `new'
             }
         }
     }
@@ -235,7 +249,18 @@ program define recode12, rclass
     label variable `statusvar' "recode12 verification status"
 
     local n_recoded : word count `recoded'
-    di as txt "standardized `n_recoded' variable(s):" as result " `recoded'"
+    local n_numeric_recoded : word count `numeric_recoded'
+    local n_string_recoded : word count `string_recoded'
+    if `n_numeric_recoded' > 0 {
+        di as txt "numeric variables standardized (`n_numeric_recoded'):" ///
+            as result " `numeric_recoded'"
+    }
+    else di as txt "numeric variables standardized (0): none"
+    if `n_string_recoded' > 0 {
+        di as txt "string variables standardized (`n_string_recoded'):" ///
+            as result " `string_recoded'"
+    }
+    else di as txt "string variables standardized (0): none"
     di as txt "verification passed: all recoded values match the selected mapping rule"
     return local value_label "`vallab'"
     return local status_variable "`statusvar'"
@@ -245,6 +270,10 @@ program define recode12, rclass
     return local source `"`eligible'"'
     return local numeric_source `"`numeric_eligible'"'
     return local string_source `"`string_eligible'"'
+    return local numeric_recoded `"`numeric_recoded'"'
+    return local string_recoded `"`string_recoded'"'
     return local recoded `"`recoded'"'
+    return scalar n_numeric_recoded = `n_numeric_recoded'
+    return scalar n_string_recoded = `n_string_recoded'
     return scalar n_recoded = `n_recoded'
 end
