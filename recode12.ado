@@ -61,22 +61,22 @@ program define recode12, rclass
             tempvar normalized sourcecode obsno
             generate strL `normalized' = ustrtrim(`v')
             generate long `obsno' = _n
-            summarize `obsno' if `normalized' != "", meanonly
+            summarize `obsno' if !inlist(`normalized', "", "."), meanonly
             if r(N) == 0 {
                 local skipped `skipped' `v'
                 continue
             }
             local first1 = r(min)
             generate byte `sourcecode' = .
-            replace `sourcecode' = 1 if `normalized' == `normalized'[`first1'] & `normalized' != ""
-            summarize `obsno' if `normalized' != "" & missing(`sourcecode'), meanonly
+            replace `sourcecode' = 1 if `normalized' == `normalized'[`first1'] & !inlist(`normalized', "", ".")
+            summarize `obsno' if !inlist(`normalized', "", ".") & missing(`sourcecode'), meanonly
             if r(N) == 0 {
                 local skipped `skipped' `v'
                 continue
             }
             local first2 = r(min)
-            replace `sourcecode' = 2 if `normalized' == `normalized'[`first2'] & `normalized' != ""
-            count if `normalized' != "" & missing(`sourcecode')
+            replace `sourcecode' = 2 if `normalized' == `normalized'[`first2'] & !inlist(`normalized', "", ".")
+            count if !inlist(`normalized', "", ".") & missing(`sourcecode')
             if r(N) == 0 {
                 local eligible `eligible' `v'
                 local string_eligible `string_eligible' `v'
@@ -185,13 +185,13 @@ program define recode12, rclass
             tempvar normalized sourcecode obsno
             quietly generate strL `normalized' = ustrtrim(`v')
             quietly generate long `obsno' = _n
-            quietly summarize `obsno' if `normalized' != "", meanonly
+            quietly summarize `obsno' if !inlist(`normalized', "", "."), meanonly
             local first1 = r(min)
             quietly generate byte `sourcecode' = .
-            quietly replace `sourcecode' = 1 if `normalized' == `normalized'[`first1'] & `normalized' != ""
-            quietly summarize `obsno' if `normalized' != "" & missing(`sourcecode'), meanonly
+            quietly replace `sourcecode' = 1 if `normalized' == `normalized'[`first1'] & !inlist(`normalized', "", ".")
+            quietly summarize `obsno' if !inlist(`normalized', "", ".") & missing(`sourcecode'), meanonly
             local first2 = r(min)
-            quietly replace `sourcecode' = 2 if `normalized' == `normalized'[`first2'] & `normalized' != ""
+            quietly replace `sourcecode' = 2 if `normalized' == `normalized'[`first2'] & !inlist(`normalized', "", ".")
 
             local cat1 = `normalized'[`first1']
             local cat2 = `normalized'[`first2']

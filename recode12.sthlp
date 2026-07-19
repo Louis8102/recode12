@@ -6,7 +6,7 @@
 {title:Title}
 
 {phang}
-{bf:recode12} {hline 2} Standardize two-category numeric or string variables as labeled 0/1 indicators
+{bf:recode12} {hline 2} Standardize numeric 1/2 variables and corresponding two-category string variables as labeled 0/1 indicators
 
 {title:Syntax}
 
@@ -16,35 +16,40 @@
 {title:Description}
 
 {pstd}
-{cmd:recode12} standardizes eligible two-category numeric and string variables
-as labeled 0/1 indicators. Numeric and string variables may be processed alone
-or together with the same command.
+{cmd:recode12} standardizes eligible numeric variables coded 1/2 and eligible
+two-category string variables as labeled 0/1 indicators. For string variables,
+the first and second distinct nonmissing categories serve as the counterparts
+of numeric source codes 1 and 2. Numeric and string variables may be processed
+alone or together with the same command.
 
 {pstd}
 An eligible numeric variable contains both 1 and 2, may contain ordinary system
-missing ({cmd:.}), and contains no other values. A numeric variable containing
-an extended missing value ({cmd:.a} through {cmd:.z}), any other numeric value,
-only one source category, or no nonmissing observations is skipped.
+missing ({cmd:.}), and contains no other values. A variable containing only 1
+plus {cmd:.}, only 2 plus {cmd:.}, an extended missing value ({cmd:.a} through
+{cmd:.z}, including {cmd:.m} or {cmd:.n}), any other numeric value, or no
+nonmissing observations is skipped.
 
 {pstd}
-An eligible string variable contains exactly two distinct nonblank categories.
-{cmd:recode12} scans observations in their current order, ignores empty strings
-and strings containing only leading or trailing Unicode whitespace after
-trimming, and treats the first distinct nonblank category encountered as source
-category 1 and the second as source category 2. Repeated categories do not
-affect this order. A string variable with fewer or more than two distinct
-nonblank categories is skipped.
+An eligible string variable contains exactly two distinct nonmissing categories,
+and both must be observed. For this eligibility check, {cmd:recode12} treats an
+empty string, a whitespace-only string, and the trimmed literal string {cmd:"."}
+as missing. It scans observations in their current order, ignores these missing
+representations and repeated categories, and treats the first distinct
+nonmissing category encountered as source category 1 and the second as source
+category 2. A string variable containing only one category plus missing values,
+no nonmissing categories, or any additional distinct value, including a marker
+such as {cmd:m}, {cmd:n}, {cmd:.m}, or {cmd:.n}, is skipped.
 
 {pstd}
 The string rule corresponds directly to the numeric rule. For numeric variables,
 source categories 1 and 2 are the literal values 1 and 2. For string variables,
-the first and second distinct nonblank categories encountered are treated as the
+the first and second distinct nonmissing categories encountered are treated as the
 counterparts of numeric source values 1 and 2. The same {opt yesvalue()} is then
 applied without a separate string mapping: {opt yesvalue(1)} maps source
 category 1 to 1 ({it:Yes}) and source category 2 to 0 ({it:No});
 {opt yesvalue(2)} maps source category 1 to 0 and source category 2 to 1.
-Ordinary numeric missing values and blank string observations remain missing in
-the generated numeric result.
+Ordinary numeric missing values and the string missing representations described
+above remain missing in the generated numeric result.
 
 {pstd}
 By default, the command creates a new byte variable and leaves the source
@@ -90,10 +95,11 @@ label is available, the label states the numeric condition explicitly.
 
 {pstd}
 For string variables, source-category order is based on first occurrence among
-trimmed nonblank observations. For example, for the sequence blank, {it:Plum},
-blank, {it:Plum}, {it:Peach}, source category 1 is {it:Plum} and source
-category 2 is {it:Peach}. With {cmd:yesvalue(2)}, Plum is mapped to 0 and Peach
-to 1. With {cmd:yesvalue(1)}, the direction is reversed.
+trimmed nonmissing observations. For example, for the sequence {cmd:"."},
+{it:Plum}, blank, {it:Plum}, {it:Peach}, source category 1 is {it:Plum} and
+source category 2 is {it:Peach}. The dot and blank remain missing. With
+{cmd:yesvalue(2)}, Plum is mapped to 0 and Peach to 1. With
+{cmd:yesvalue(1)}, the direction is reversed.
 
 {pstd}
 Because string-category order follows the current observation order, sorting
@@ -165,6 +171,18 @@ Overwrite eligible source variables:
 {synopt:{cmd:r(value_label)}}name of the attached value label{p_end}
 {synopt:{cmd:r(status_variable)}}name of the confirmation variable{p_end}
 
+{title:Version history}
+
+{phang}
+{bf:1.1.0, 19 July 2026.} Added eligible two-category string variables, mixed
+numeric/string processing, first-occurrence string category ordering, explicit
+string-missing rules, and type-specific stored results. The original numeric
+1/2 eligibility and {opt yesvalue()} mapping rules remain unchanged.
+
+{phang}
+{bf:1.0.0, 12 July 2026.} Initial SSC release for eligible numeric variables
+coded 1/2.
+
 {title:Author}
 
 {pstd}
@@ -177,8 +195,9 @@ Email: {browse "mailto:shouhuoxiwang2027@gmail.com":shouhuoxiwang2027@gmail.com}
 If you use {cmd:recode12} in published work, please cite:
 
 {phang}
-Ma, Hao. 2026. {it:recode12: A Stata command for standardizing two-category
-numeric and string variables as labeled 0/1 indicators}. Version 1.1.0.
+Ma, Hao. 2026. {it:recode12: A Stata command for standardizing numeric 1/2
+variables and corresponding two-category string variables as labeled 0/1
+indicators}. Version 1.1.0.
 
 {title:License}
 

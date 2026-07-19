@@ -11,8 +11,12 @@ generate y = x
 generate bad = cond(_n==1,1,cond(_n==2,2,3))
 generate only1 = 1
 generate ext = cond(_n==1,1,cond(_n==2,2,.a))
+generate extm = cond(_n==1,1,cond(_n==2,2,.m))
+generate extn = cond(_n==1,1,cond(_n==2,2,.n))
+generate only1miss = cond(_n==1,1,.)
+generate only2miss = cond(_n==1,2,.)
 
-recode12 x y bad only1 ext, yesvalue(1)
+recode12 x y bad only1 ext extm extn only1miss only2miss, yesvalue(1)
 assert x_01 == 1 if x == 1
 assert x_01 == 0 if x == 2
 assert missing(x_01) if missing(x)
@@ -27,25 +31,30 @@ assert recode12_status == "confirmed"
 * String variables only: first two distinct trimmed nonempty categories define 1 and 2.
 clear
 input str12 exam str12 fruit str8 onlyone str8 threecat str8 allblank
-"Pass" ""      "Yes" "A" ""
-""     "Plum"  ""    "B" "   "
+"Pass" "."     "Yes" "A" ""
+"."    "Plum"  "."   "B" "   "
 "Fail" ""      "Yes" "C" ""
 "Pass" "Plum"  ""    "A" " "
 "Fail" "Peach" "Yes" "B" ""
-""     "Peach" ""    "C" ""
+" . "  "Peach" ""    "C" " . "
 end
 
-recode12 exam fruit onlyone threecat allblank, yesvalue(2)
+generate str8 ascii3 = cond(_n<=2,"Pass",cond(_n<=4,"Fail","m"))
+generate str8 dotm3 = cond(_n<=2,"Pass",cond(_n<=4,"Fail",".m"))
+generate str8 ascii_n3 = cond(_n<=2,"Pass",cond(_n<=4,"Fail","n"))
+generate str8 dotn3 = cond(_n<=2,"Pass",cond(_n<=4,"Fail",".n"))
+
+recode12 exam fruit onlyone threecat allblank ascii3 dotm3 ascii_n3 dotn3, yesvalue(2)
 assert exam_01 == 0 if ustrtrim(exam) == "Pass"
 assert exam_01 == 1 if ustrtrim(exam) == "Fail"
-assert missing(exam_01) if ustrtrim(exam) == ""
+assert missing(exam_01) if inlist(ustrtrim(exam), "", ".")
 assert fruit_01 == 0 if ustrtrim(fruit) == "Plum"
 assert fruit_01 == 1 if ustrtrim(fruit) == "Peach"
-assert missing(fruit_01) if ustrtrim(fruit) == ""
+assert missing(fruit_01) if inlist(ustrtrim(fruit), "", ".")
 assert r(n_recoded) == 2
 assert `"`r(numeric_source)'"' == ""
 assert `"`r(string_source)'"' == "exam fruit"
-assert `"`r(skipped)'"' == "onlyone threecat allblank"
+assert `"`r(skipped)'"' == "onlyone threecat allblank ascii3 dotm3 ascii_n3 dotn3"
 assert `"`: value label exam_01'"' == "recode12_NoYes"
 assert `"`: variable label exam_01'"' == "Recoded Fail (0=No; 1=Yes)"
 
@@ -83,7 +92,7 @@ assert r(n_recoded) == 2
 clear
 set obs 5
 generate n = cond(_n==5,.,cond(mod(_n,2),1,2))
-generate str8 s = cond(_n==5,"   ",cond(mod(_n,2),"First","Second"))
+generate str8 s = cond(_n==5," . ",cond(mod(_n,2),"First","Second"))
 recode12 n s, yesvalue(2) replace
 confirm numeric variable s
 assert n == 0 if mod(_n,2) & _n<5

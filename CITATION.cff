@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
-title: "recode12: A Stata command for standardizing two-category numeric and string variables as labeled 0/1 indicators"
+title: "recode12: A Stata command for standardizing numeric 1/2 variables and corresponding two-category string variables as labeled 0/1 indicators"
 type: software
 authors:
   - family-names: "Ma"

@@ -2,16 +2,22 @@
 
 ## Overview
 
-`recode12` is a Stata module for standardizing eligible two-category numeric and string variables as labeled 0/1 indicators. It automates a routine but consequential data-management step, records the selected direction in the command, applies uniform No/Yes value labels, and verifies every converted value.
+`recode12` is a Stata module for standardizing eligible numeric variables coded 1/2 and eligible two-category string variables as labeled 0/1 indicators. For a string variable, its first and second distinct nonmissing categories are treated as the counterparts of numeric source codes 1 and 2. The module therefore applies the same mapping logic to both storage types, automates a routine but consequential data-management step, assigns uniform No/Yes value labels, and verifies every converted value.
 
 The same concise syntax handles three common situations: eligible numeric variables only, eligible string variables only, or both types in the same dataset.
 
 ## Installation and example data
 
-Install the SSC release and copy its ancillary example files into the current directory:
+Version 1.1.0 is an updated GitHub release and has not yet been accepted as an SSC update. Install it from GitHub:
 
 ```stata
-ssc install recode12, all replace
+net install recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
+```
+
+Retrieve the updated example data and do-files:
+
+```stata
+net get recode12, from("https://raw.githubusercontent.com/Louis8102/recode12/main") replace
 ```
 
 Load the example dataset:
@@ -22,11 +28,11 @@ use recode12_example_data.dta, clear
 
 ## Eligible variables
 
-An eligible numeric variable contains both 1 and 2, may contain ordinary system missing (`.`), and contains no other values. Extended missing values, other numeric values, a single observed category, or no nonmissing observations make a numeric variable ineligible.
+An eligible numeric variable contains both 1 and 2, may contain ordinary system missing (`.`), and contains no other values. A variable containing only `1` plus `.`, only `2` plus `.`, an extended missing value such as `.m` or `.n`, any other numeric value, or no nonmissing observations is ineligible.
 
-An eligible string variable contains exactly two distinct nonblank categories. `recode12` scans observations in their current order, ignores empty or whitespace-only strings and repeated categories, treats the first distinct nonblank category as source category 1, and treats the second as source category 2. A string variable with fewer or more than two distinct nonblank categories is skipped.
+An eligible string variable contains exactly two distinct nonmissing categories, and both must be observed. For string-variable eligibility, `recode12` treats an empty string, a whitespace-only string, and the trimmed literal string `"."` as missing. It scans observations in their current order, ignores these missing representations and repeated categories, treats the first distinct nonmissing category as source category 1, and treats the second as source category 2. A variable containing only one category plus missing values, no nonmissing categories, or any additional distinct value—including markers such as `m`, `n`, `.m`, or `.n`—is skipped.
 
-For example, the sequence blank, `Plum`, blank, `Plum`, `Peach` defines `Plum` as source category 1 and `Peach` as source category 2. Sorting the dataset before recoding may therefore change string-category order. The command displays the detected order for every eligible string variable.
+For example, the sequence `"."`, `Plum`, blank, `Plum`, `Peach` defines `Plum` as source category 1 and `Peach` as source category 2; the dot and blank are preserved as missing in the numeric result. Sorting the dataset before recoding may change string-category order. The command displays the detected order for every eligible string variable.
 
 ## Use
 
@@ -56,7 +62,7 @@ recode12, yesvalue(2)
 
 The character-string rule corresponds directly to the numeric rule. Numeric
 source values 1 and 2 are literal. For a string variable, its first and second
-distinct nonblank categories are treated as the counterparts of numeric source
+distinct nonmissing categories are treated as the counterparts of numeric source
 values 1 and 2. The same `yesvalue()` is then applied to both types, with no
 separate string mapping:
 
@@ -65,7 +71,7 @@ yesvalue(1): source category 1 -> 1 (Yes); source category 2 -> 0 (No)
 yesvalue(2): source category 1 -> 0 (No);  source category 2 -> 1 (Yes)
 ```
 
-For numeric variables, source categories 1 and 2 are the literal values 1 and 2. For string variables, they are the first and second distinct nonblank categories encountered. The command does not infer whether a category is affirmative, negative, favorable, or unfavorable.
+For numeric variables, source categories 1 and 2 are the literal values 1 and 2. For string variables, they are the first and second distinct nonmissing categories encountered. The command does not infer whether a category is affirmative, negative, favorable, or unfavorable.
 
 ## Output and verification
 
@@ -92,9 +98,14 @@ After recoding, the command verifies the selected mapping, preservation of missi
 - StataNow 19.5
 - Numeric-only, string-only, mixed-type, all-variable, generated-variable, `suffix()`, `replace`, missing-value, ineligible-variable, mapping, label, stored-result, example-data, and regression tests are included.
 
+## Version history
+
+- **1.1.0 (19 July 2026):** Added eligible two-category string variables, mixed numeric/string processing, first-occurrence string category ordering, explicit string-missing rules, and type-specific stored results. The original numeric 1/2 eligibility and `yesvalue()` mapping rules remain unchanged.
+- **1.0.0 (12 July 2026):** Initial SSC release for eligible numeric variables coded 1/2.
+
 ## Citation
 
-> Ma, Hao. 2026. “recode12: A Stata command for standardizing two-category numeric and string variables as labeled 0/1 indicators.” Version 1.1.0.
+> Ma, Hao. 2026. “recode12: A Stata command for standardizing numeric 1/2 variables and corresponding two-category string variables as labeled 0/1 indicators.” Version 1.1.0.
 
 ## Author
 

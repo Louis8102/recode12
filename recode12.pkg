@@ -1,5 +1,5 @@
 v 3
-d RECODE12: Standardize two-category numeric or string variables as labeled 0/1 indicators
+d RECODE12: Standardize numeric 1/2 variables and corresponding two-category string variables as labeled 0/1 indicators
 d
 d Distribution-Date: 20260719
 d Requires: StataNow 19.5
