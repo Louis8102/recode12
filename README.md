@@ -32,7 +32,7 @@ An eligible numeric variable contains both 1 and 2, may contain ordinary system 
 
 An eligible string variable contains exactly two distinct nonmissing categories, and both must be observed. For string-variable eligibility, `recode12` treats an empty string, a whitespace-only string, and the trimmed literal string `"."` as missing. It scans observations in their current order, ignores these missing representations and repeated categories, treats the first distinct nonmissing category as source category 1, and treats the second as source category 2. A variable containing only one category plus missing values, no nonmissing categories, or any additional distinct value—including markers such as `m`, `n`, `.m`, or `.n`—is skipped.
 
-For example, the sequence `"."`, `Plum`, blank, `Plum`, `Peach` defines `Plum` as source category 1 and `Peach` as source category 2; the dot and blank are preserved as missing in the numeric result. Sorting the dataset before recoding may change string-category order. The command displays the detected order for every eligible string variable.
+For example, the sequence `"."`, `Plum`, blank, `Plum`, `Peach` defines `Plum` as source category 1 and `Peach` as source category 2; the dot and blank are preserved as missing in the numeric result. Sorting the dataset before recoding may therefore change string-category order.
 
 ## Use
 

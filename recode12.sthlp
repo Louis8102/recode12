@@ -109,9 +109,8 @@ source category 2 is {it:Peach}. The dot and blank remain missing. With
 {pstd}
 Because string-category order follows the current observation order, sorting
 the dataset before running {cmd:recode12} can change which string category is
-source category 1. The command therefore displays the two detected source
-categories for every eligible string variable and states the selected category
-in the generated variable label.
+source category 1. The selected category is stated in the generated variable
+label.
 
 {pstd}
 Generated or replaced variables use the shared value label

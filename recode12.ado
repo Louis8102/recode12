@@ -114,7 +114,8 @@ program define recode12, rclass
         local statuslabel : variable label `statusvar'
         local statustype : type `statusvar'
         if substr("`statustype'", 1, 3) != "str" | ///
-            `"`statuslabel'"' != "recode12 verification status" {
+            !inlist(`"`statuslabel'"', "recode12 verification status", ///
+                "recode12 Verification Status") {
             di as err "variable `statusvar' already exists and was not created by recode12"
             exit 110
         }
@@ -211,9 +212,6 @@ program define recode12, rclass
             local target : subinstr local target `"' "'", all
             local newvl `"Recoded `target' (0=No; 1=Yes)"'
             local newvl = ustrleft(`"`newvl'"', 80)
-            di as txt "`v': source category 1 = " as result `"`cat1'"' ///
-                as txt "; source category 2 = " as result `"`cat2'"'
-
             if `"`replace'"' != "" {
                 tempvar original newvalue
                 quietly clonevar `original' = `v'
@@ -246,7 +244,7 @@ program define recode12, rclass
     capture confirm variable `statusvar'
     if _rc generate str9 `statusvar' = "confirmed"
     else quietly replace `statusvar' = "confirmed"
-    label variable `statusvar' "recode12 verification status"
+    label variable `statusvar' "recode12 Verification Status"
 
     local n_recoded : word count `recoded'
     local n_numeric_recoded : word count `numeric_recoded'
