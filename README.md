@@ -2,9 +2,9 @@
 
 ## Overview
 
-`recode12` is a Stata module for standardizing eligible numeric variables coded 1/2 and eligible two-category string variables as labeled 0/1 indicators. For a string variable, its first and second distinct nonmissing categories are treated as the counterparts of numeric source codes 1 and 2. The module therefore applies the same mapping logic to both storage types, automates a routine but consequential data-management step, assigns uniform No/Yes value labels, and verifies every converted value.
+`recode12` is a Stata module for standardizing eligible numeric variables coded 1/2 and eligible two-category string variables as labeled 0/1 indicators. For a string variable, its first and second distinct nonmissing categories are treated as the counterparts of numeric source codes 1 and 2. The module therefore applies the same mapping rule to both numeric and string variables, automates a routine but consequential data-management step, assigns uniform No/Yes value labels, and verifies every converted value.
 
-The same concise syntax handles three common situations: eligible numeric variables only, eligible string variables only, or both types in the same dataset.
+The same concise syntax handles three common situations: eligible numeric variables only, eligible string variables only, or both variable types in the same dataset.
 
 ## Installation and example data
 
@@ -63,7 +63,7 @@ recode12, yesvalue(2)
 The character-string rule corresponds directly to the numeric rule. Numeric
 source values 1 and 2 are literal. For a string variable, its first and second
 distinct nonmissing categories are treated as the counterparts of numeric source
-values 1 and 2. The same `yesvalue()` is then applied to both types, with no
+values 1 and 2. The same `yesvalue()` is then applied to numeric and string variables, with no
 separate string mapping:
 
 ```text
