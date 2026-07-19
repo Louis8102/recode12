@@ -1,11 +1,12 @@
 {smcl}
-{* *! version 1.0.0  12jul2026}{...}
+{* *! version 1.1.0  19jul2026}{...}
 {vieweralsosee "recode" "help recode"}{...}
+{vieweralsosee "encode" "help encode"}{...}
 {vieweralsosee "label values" "help label_values"}{...}
 {title:Title}
 
 {phang}
-{bf:recode12} {hline 2} Standardize 1/2-coded variables as labeled 0/1 indicators
+{bf:recode12} {hline 2} Standardize two-category numeric or string variables as labeled 0/1 indicators
 
 {title:Syntax}
 
@@ -15,111 +16,152 @@
 {title:Description}
 
 {pstd}
-{cmd:recode12} identifies numeric variables whose values are 1, 2, or ordinary
-system missing ({cmd:.}), with both 1 and 2 observed. Variables containing an
-extended missing value ({cmd:.a} through {cmd:.z}), any other numeric value,
-only one of the two categories, or no nonmissing observations are skipped.
+{cmd:recode12} standardizes eligible two-category numeric and string variables
+as labeled 0/1 indicators. Numeric and string variables may be processed alone
+or together with the same command.
 
 {pstd}
-For each eligible variable, {cmd:recode12} maps the source value selected by
-{opt yesvalue()} to 1 and the other source value to 0, preserves numeric missing
-values, and assigns the value label 0 {it:No} and 1 {it:Yes}. The required
-{opt yesvalue()} option records the mapping explicitly. By default, the command
-creates a new byte variable and leaves the source variable unchanged.
+An eligible numeric variable contains both 1 and 2, may contain ordinary system
+missing ({cmd:.}), and contains no other values. A numeric variable containing
+an extended missing value ({cmd:.a} through {cmd:.z}), any other numeric value,
+only one source category, or no nonmissing observations is skipped.
 
 {pstd}
-If {it:varlist} is omitted, all numeric variables in the dataset are examined.
-The mapping must still be specified with {opt yesvalue()}.
+An eligible string variable contains exactly two distinct nonblank categories.
+{cmd:recode12} scans observations in their current order, ignores empty strings
+and strings containing only leading or trailing Unicode whitespace after
+trimming, and treats the first distinct nonblank category encountered as source
+category 1 and the second as source category 2. Repeated categories do not
+affect this order. A string variable with fewer or more than two distinct
+nonblank categories is skipped.
+
+{pstd}
+The string rule corresponds directly to the numeric rule. For numeric variables,
+source categories 1 and 2 are the literal values 1 and 2. For string variables,
+the first and second distinct nonblank categories encountered are treated as the
+counterparts of numeric source values 1 and 2. The same {opt yesvalue()} is then
+applied without a separate string mapping: {opt yesvalue(1)} maps source
+category 1 to 1 ({it:Yes}) and source category 2 to 0 ({it:No});
+{opt yesvalue(2)} maps source category 1 to 0 and source category 2 to 1.
+Ordinary numeric missing values and blank string observations remain missing in
+the generated numeric result.
+
+{pstd}
+By default, the command creates a new byte variable and leaves the source
+variable unchanged. If {it:varlist} is omitted, every variable in the dataset
+is examined and only eligible variables are processed.
 
 {pstd}
 After recoding, the command verifies every converted observation against the
-selected mapping, confirms that ordinary system missing values were preserved,
-and confirms that every nonmissing result is 0 or 1. It reports
-success only after all verification checks pass.
+selected mapping and confirms that every nonmissing result is 0 or 1. It
+reports success only after all verification checks pass.
 
 {title:Options}
 
 {phang}
-{opt yesvalue(#)} is required and specifies which source value becomes 1
-({it:Yes}). The argument must be 1 or 2. Specify
-{cmd:yesvalue(1)} to map source 1 to Yes/1, or {cmd:yesvalue(2)} to map source 2
-to Yes/1.
+{opt yesvalue(#)} is required. The argument must be 1 or 2 and selects which
+source category becomes 1 ({it:Yes}). It applies uniformly to every eligible
+numeric and string variable in the command.
 
 {phang}
 {opt suffix(name)} specifies the suffix for generated variables. The default is
-the neutral suffix {cmd:suffix(_01)}. Suffixes should describe the coding format
-rather than assume category meaning. The resulting name must be a legal, unused
-Stata variable name.
+{cmd:suffix(_01)}. The resulting name must be a legal, unused Stata variable
+name.
 
 {phang}
-{opt replace} changes eligible source variables in place. It may not be combined
-with {opt suffix()}. Because this operation overwrites values and replaces the
-attached variable and value labels, users should normally retain the default behavior.
+{opt replace} overwrites each eligible source variable with its recoded 0/1
+values instead of creating a new variable. For eligible string variables this
+changes the source variable from string to numeric while retaining its name.
+{opt replace} may not be combined with {opt suffix()} and should be used only
+when the original values are no longer needed.
 
 {title:Remarks}
 
 {pstd}
-The command determines eligibility from values, not from the meaning of a
-variable. The category selected by {opt yesvalue()} becomes 1 and the other
-category becomes 0. When the source values have category labels, those meanings
-are stated explicitly in the generated variable label.
+The command determines eligibility from observed values, not from variable
+names or substantive meaning. It does not attempt to decide whether a category
+is favorable, unfavorable, affirmative, or negative.
 
 {pstd}
-For example, if {cmd:sex} is coded 1 Female and 2 Male, {cmd:yesvalue(1)}
-generates 1 for Female and 0 for Male, whereas {cmd:yesvalue(2)} generates 1 for
-Male and 0 for Female. {cmd:recode12} does not infer category meaning. A
-generated variable begins with {it:Recoded}, names the category mapped to
-Yes/1, and states the common coding explicitly. For example,
-{cmd:yesvalue(1)} produces {it:Recoded Female (0=No; 1=Yes)}.
-If the selected source value has no category label, the generated variable
-label states the numeric condition explicitly, for example
-{it:Recoded x == 1 (0=No; 1=Yes)}.
+For numeric variables, source categories 1 and 2 are the observed values 1 and
+2. When those values have category labels, the category selected by
+{opt yesvalue()} is stated in the generated variable label. If no category
+label is available, the label states the numeric condition explicitly.
 
 {pstd}
-Generated variables use the shared value label {cmd:recode12_NoYes}, defining
-0 as {it:No} and 1 as {it:Yes}. Its name is returned in {cmd:r(value_label)}.
+For string variables, source-category order is based on first occurrence among
+trimmed nonblank observations. For example, for the sequence blank, {it:Plum},
+blank, {it:Plum}, {it:Peach}, source category 1 is {it:Plum} and source
+category 2 is {it:Peach}. With {cmd:yesvalue(2)}, Plum is mapped to 0 and Peach
+to 1. With {cmd:yesvalue(1)}, the direction is reversed.
+
+{pstd}
+Because string-category order follows the current observation order, sorting
+the dataset before running {cmd:recode12} can change which string category is
+source category 1. The command therefore displays the two detected source
+categories for every eligible string variable and states the selected category
+in the generated variable label.
+
+{pstd}
+Generated or replaced variables use the shared value label
+{cmd:recode12_NoYes}, defining 0 as {it:No} and 1 as {it:Yes}. A generated
+variable label begins with {it:Recoded}, identifies the category mapped to 1,
+and states {it:(0=No; 1=Yes)}.
 
 {pstd}
 Only after every post-recode check passes, the command creates or updates the
 string variable {cmd:recode12_status} and fills every observation with
-{it:confirmed}. If verification fails, the command reports an error and does
-not write {it:confirmed}. A preexisting variable with this name is reused only
-when it was previously created by {cmd:recode12}; otherwise the command stops
-to avoid overwriting user data. This status confirms computational consistency
-with the specified mapping; it does not establish that the user's substantive
-choice of {opt yesvalue()} is correct for the research question.
+{it:confirmed}. A preexisting variable with this name is reused only when it was
+previously created by {cmd:recode12}; otherwise the command stops. This status
+confirms computational consistency, not the substantive suitability of the
+user's chosen direction.
 
 {title:Examples}
 
 {pstd}
-The example dataset supplied with this package can be loaded as follows:
+Load the supplied example dataset:
 
-{phang2}{cmd:. use example_data.dta, clear}{p_end}
-{phang2}{cmd:. recode12 employed owns_home insured, yesvalue(2)}{p_end}
-{phang2}{cmd:. recode12 female, yesvalue(1)}{p_end}
-{phang2}{cmd:. recode12 white veteran owns_car, yesvalue(2) suffix(_bin)}{p_end}
-{phang2}{cmd:. recode12 female, yesvalue(2) suffix(_male)}{p_end}
-{phang2}{cmd:. recode12 employed owns_home, yesvalue(2) replace}{p_end}
-{phang2}{cmd:. recode12 female, yesvalue(2) replace}{p_end}
+{phang2}{cmd:. use recode12_example_data.dta, clear}{p_end}
 
 {pstd}
-For {cmd:yesvalue(1)}, the command displays
-{cmd:mapping: source 1 -> 1 (Yes); source 2 -> 0 (No)}. For
-{cmd:yesvalue(2)}, it displays
-{cmd:mapping: source 1 -> 0 (No); source 2 -> 1 (Yes)}.
+Process eligible numeric variables only:
+
+{phang2}{cmd:. recode12 female employed, yesvalue(2)}{p_end}
+
+{pstd}
+Process eligible string variables only:
+
+{phang2}{cmd:. recode12 exam_result_text preferred_fruit, yesvalue(2)}{p_end}
+
+{pstd}
+Process numeric and string variables together:
+
+{phang2}{cmd:. recode12 female employed exam_result_text preferred_fruit, yesvalue(2)}{p_end}
+
+{pstd}
+Examine all variables and process every eligible numeric and string variable:
+
+{phang2}{cmd:. recode12, yesvalue(2)}{p_end}
+
+{pstd}
+Overwrite eligible source variables:
+
+{phang2}{cmd:. recode12 employed exam_result_text, yesvalue(2) replace}{p_end}
 
 {title:Stored results}
 
 {pstd}
 {cmd:recode12} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
+{synoptset 22 tabbed}{...}
 {synopt:{cmd:r(n_recoded)}}number of variables recoded{p_end}
-{synopt:{cmd:r(yesvalue)}}source value mapped to 1 ({it:Yes}){p_end}
+{synopt:{cmd:r(yesvalue)}}source category mapped to 1 ({it:Yes}){p_end}
 {synopt:{cmd:r(verified)}}1 if at least one variable was recoded and all checks passed; otherwise 0{p_end}
 {synopt:{cmd:r(recoded)}}generated or replaced variables{p_end}
-{synopt:{cmd:r(source)}}eligible source variables{p_end}
-{synopt:{cmd:r(skipped)}}examined variables not meeting the rule{p_end}
+{synopt:{cmd:r(source)}}all eligible source variables{p_end}
+{synopt:{cmd:r(numeric_source)}}eligible numeric source variables{p_end}
+{synopt:{cmd:r(string_source)}}eligible string source variables{p_end}
+{synopt:{cmd:r(skipped)}}examined variables not meeting the applicable rule{p_end}
 {synopt:{cmd:r(value_label)}}name of the attached value label{p_end}
 {synopt:{cmd:r(status_variable)}}name of the confirmation variable{p_end}
 
@@ -135,8 +177,8 @@ Email: {browse "mailto:shouhuoxiwang2027@gmail.com":shouhuoxiwang2027@gmail.com}
 If you use {cmd:recode12} in published work, please cite:
 
 {phang}
-Ma, Hao. 2026. {it:recode12: A Stata command for standardizing 1/2-coded
-variables as labeled 0/1 indicators}. Version 1.0.0.
+Ma, Hao. 2026. {it:recode12: A Stata command for standardizing two-category
+numeric and string variables as labeled 0/1 indicators}. Version 1.1.0.
 
 {title:License}
 
@@ -146,4 +188,4 @@ variables as labeled 0/1 indicators}. Version 1.0.0.
 {title:Also see}
 
 {psee}
-Manual: {manhelp recode D}, {manhelp label D}
+Manual: {manhelp recode D}, {manhelp encode D}, {manhelp label D}
