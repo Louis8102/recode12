@@ -1,6 +1,7 @@
-*! version 1.2.5  27jul2026
+*! version 1.2.7  27jul2026
 
 cap mata: mata drop recode12_levenshtein()
+cap mata: mata drop recode12_fuzzy_match()
 
 mata:
 real scalar recode12_levenshtein(string scalar a, string scalar b)
@@ -29,6 +30,103 @@ real scalar recode12_levenshtein(string scalar a, string scalar b)
 
     return(d[m + 1, n + 1])
 }
+
+void recode12_fuzzy_match()
+{
+    string scalar key1, key2
+    string rowvector affirmative, negative
+    real scalar i, limit1, limit2
+    real scalar a1, a2, b1, b2, score
+    real scalar bestscore, bestcount, best_affcat, best_negcat
+    real scalar best_d1, best_d2
+    string scalar best_aff, best_neg
+
+    key1 = st_local("key1")
+    key2 = st_local("key2")
+
+    affirmative = ("yes", "true", "positive", "present", "pass", "passed", ///
+        "passedexam", "completedtraining", "attended", "attendance", ///
+        "eligible", "eligible", "eligibility", "approved", "accepted", ///
+        "complete", "completed", "employed", "active", "crime", "criminal")
+
+    negative = ("no", "false", "negative", "absent", "fail", "failed", ///
+        "didnotpassexam", "didnotcompletetraining", "notattended", ///
+        "nonattendance", "ineligible", "noeligibility", "ineligibility", ///
+        "denied", "rejected", "incomplete", "incomplete", "unemployed", ///
+        "inactive", "nocrime", "noncriminal")
+
+    limit1 = (strlen(key1) <= 3 ? 0 : (strlen(key1) <= 10 ? 1 : 2))
+    limit2 = (strlen(key2) <= 3 ? 0 : (strlen(key2) <= 10 ? 1 : 2))
+
+    bestscore = .
+    bestcount = 0
+    best_affcat = .
+    best_negcat = .
+    best_aff = ""
+    best_neg = ""
+    best_d1 = .
+    best_d2 = .
+
+    for (i = 1; i <= cols(affirmative); i++) {
+        a1 = recode12_levenshtein(key1, affirmative[i])
+        a2 = recode12_levenshtein(key2, negative[i])
+        b1 = recode12_levenshtein(key1, negative[i])
+        b2 = recode12_levenshtein(key2, affirmative[i])
+
+        if (a1 <= limit1 & a2 <= limit2) {
+            score = a1 + a2
+            if (missing(bestscore) | score < bestscore) {
+                bestscore = score
+                bestcount = 1
+                best_affcat = 1
+                best_negcat = 2
+                best_aff = affirmative[i]
+                best_neg = negative[i]
+                best_d1 = a1
+                best_d2 = a2
+            }
+            else if (score == bestscore) {
+                bestcount = bestcount + 1
+            }
+        }
+
+        if (b1 <= limit1 & b2 <= limit2) {
+            score = b1 + b2
+            if (missing(bestscore) | score < bestscore) {
+                bestscore = score
+                bestcount = 1
+                best_affcat = 2
+                best_negcat = 1
+                best_aff = affirmative[i]
+                best_neg = negative[i]
+                best_d1 = b1
+                best_d2 = b2
+            }
+            else if (score == bestscore) {
+                bestcount = bestcount + 1
+            }
+        }
+    }
+
+    if (bestcount == 1 & !missing(bestscore)) {
+        st_local("fm_classified", "1")
+        st_local("fm_affirmative_category", strofreal(best_affcat))
+        st_local("fm_negative_category", strofreal(best_negcat))
+        st_local("fm_affirmative", best_aff)
+        st_local("fm_negative", best_neg)
+        st_local("fm_d1", strofreal(best_d1))
+        st_local("fm_d2", strofreal(best_d2))
+    }
+    else {
+        st_local("fm_classified", "0")
+        st_local("fm_affirmative_category", ".")
+        st_local("fm_negative_category", ".")
+        st_local("fm_affirmative", "")
+        st_local("fm_negative", "")
+        st_local("fm_d1", ".")
+        st_local("fm_d2", ".")
+    }
+}
 end
 
 program define _recode12_normkey, rclass
@@ -52,7 +150,7 @@ _recode12_normkey, text(`"`cat2'"')
 loc key2 `"`r(key)'"'
 
 loc pairs_en ///
-    yes|no true|false positive|negative present|absent pass|fail passed|failed ///
+    yes|no true|false positive|negative present|absent pass|fail passed|failed passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
     attended|notattended attendance|nonattendance eligible|ineligible ///
     eligible|noeligibility eligibility|ineligibility ///
     approved|denied accepted|rejected complete|incomplete completed|incomplete ///
@@ -116,84 +214,25 @@ if !`classified' {
     loc ascii2 = ustrregexm(`"`key2'"', "^[a-z0-9]+$")
 
     if `ascii1' & `ascii2' {
-        loc limit1 = cond(strlen(`"`key1'"') <= 3, 0, ///
-            cond(strlen(`"`key1'"') <= 10, 1, 2))
-        loc limit2 = cond(strlen(`"`key2'"') <= 3, 0, ///
-            cond(strlen(`"`key2'"') <= 10, 1, 2))
+        loc fm_classified 0
+        loc fm_affirmative_category .
+        loc fm_negative_category .
+        loc fm_affirmative ""
+        loc fm_negative ""
+        loc fm_d1 .
+        loc fm_d2 .
 
-        loc bestscore = .
-        loc bestcount = 0
-        loc best_affirmative_category = .
-        loc best_negative_category = .
-        loc best_affirmative ""
-        loc best_negative ""
-        loc best_d1 = .
-        loc best_d2 = .
+        mata: recode12_fuzzy_match()
 
-        foreach pair of local pairs {
-            loc split = strpos(`"`pair'"', "|")
-            loc affirmative = substr(`"`pair'"', 1, `split' - 1)
-            loc negative = substr(`"`pair'"', `split' + 1, .)
-
-            if ustrregexm(`"`affirmative'"', "^[a-z0-9]+$") & ///
-                ustrregexm(`"`negative'"', "^[a-z0-9]+$") {
-
-                tempname d11 d12 d21 d22
-                mata: st_numscalar("`d11'", recode12_levenshtein(st_local("key1"), st_local("affirmative")))
-                mata: st_numscalar("`d12'", recode12_levenshtein(st_local("key1"), st_local("negative")))
-                mata: st_numscalar("`d21'", recode12_levenshtein(st_local("key2"), st_local("affirmative")))
-                mata: st_numscalar("`d22'", recode12_levenshtein(st_local("key2"), st_local("negative")))
-
-                loc a_d1 = scalar(`d11')
-                loc a_d2 = scalar(`d22')
-                loc b_d1 = scalar(`d12')
-                loc b_d2 = scalar(`d21')
-
-                if `a_d1' <= `limit1' & `a_d2' <= `limit2' {
-                    loc score = `a_d1' + `a_d2'
-                    if missing(`bestscore') | `score' < `bestscore' {
-                        loc bestscore = `score'
-                        loc bestcount = 1
-                        loc best_affirmative_category = 1
-                        loc best_negative_category = 2
-                        loc best_affirmative `"`affirmative'"'
-                        loc best_negative `"`negative'"'
-                        loc best_d1 = `a_d1'
-                        loc best_d2 = `a_d2'
-                    }
-                    else if `score' == `bestscore' {
-                        loc ++bestcount
-                    }
-                }
-
-                if `b_d1' <= `limit1' & `b_d2' <= `limit2' {
-                    loc score = `b_d1' + `b_d2'
-                    if missing(`bestscore') | `score' < `bestscore' {
-                        loc bestscore = `score'
-                        loc bestcount = 1
-                        loc best_affirmative_category = 2
-                        loc best_negative_category = 1
-                        loc best_affirmative `"`affirmative'"'
-                        loc best_negative `"`negative'"'
-                        loc best_d1 = `b_d1'
-                        loc best_d2 = `b_d2'
-                    }
-                    else if `score' == `bestscore' {
-                        loc ++bestcount
-                    }
-                }
-            }
-        }
-
-        if `bestcount' == 1 & !missing(`bestscore') {
+        if `fm_classified' {
             loc classified = 1
-            loc affirmative_category = `best_affirmative_category'
-            loc negative_category = `best_negative_category'
+            loc affirmative_category = `fm_affirmative_category'
+            loc negative_category = `fm_negative_category'
             loc method "conservative fuzzy match"
-            loc matched_affirmative `"`best_affirmative'"'
-            loc matched_negative `"`best_negative'"'
-            loc distance1 = `best_d1'
-            loc distance2 = `best_d2'
+            loc matched_affirmative `"`fm_affirmative'"'
+            loc matched_negative `"`fm_negative'"'
+            loc distance1 = `fm_d1'
+            loc distance2 = `fm_d2'
         }
     }
 }
@@ -231,8 +270,7 @@ if `"`replace'"' != "" & `suffix_given' {
 if `"`suffix'"' == "" local suffix "_01"
 
 if `"`varlist'"' == "" {
-    qui ds
-    loc varlist `r(varlist)'
+    unab varlist : _all
 }
 if `"`varlist'"' == "" {
     di as txt "no variables found"
@@ -404,7 +442,7 @@ else {
     }
 }
 
-if `"`numeric_eligible'"' != "" {
+if `"`numeric_eligible'"' != "" & `"`display'"' != "" {
     if `yesvalue' == 1 {
         di as txt "numeric mapping rule: source value 1 -> 1 (Yes); source value 2 -> 0 (No)"
     }
@@ -418,6 +456,12 @@ loc numeric_recoded
 loc string_recoded
 
 foreach v of local eligible {
+    loc source_label : variable label `v'
+    if `"`source_label'"' == "" loc source_label "`v'"
+    loc source_label : subinstr local source_label `"' "'", all
+    loc newvl `"Recoded `source_label' (0=No; 1=Yes)"'
+    loc newvl = ustrleft(`"`newvl'"', 80)
+
     cap confirm numeric variable `v'
 
     if !_rc {
@@ -430,17 +474,6 @@ foreach v of local eligible {
             loc cat2 : label `source_vallab' 2
         }
 
-        loc target
-        if `"`source_vallab'"' != "" {
-            if `yesvalue' == 1 local target `"`cat1'"'
-            else local target `"`cat2'"'
-        }
-        if `"`target'"' == "" local target "`v' == `yesvalue'"
-
-        loc target : subinstr local target `"' "'", all
-        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
-        loc newvl = ustrleft(`"`newvl'"', 80)
-
         if `"`replace'"' != "" {
             tempvar original
             qui clonevar `original' = `v'
@@ -448,9 +481,9 @@ foreach v of local eligible {
             label values `v' `vallab'
             label variable `v' `"`newvl'"'
 
-            assert `v' == (`original' == `yesvalue') if !missing(`original')
-            assert missing(`v') if missing(`original')
-            assert inlist(`v', 0, 1) | missing(`v')
+            qui assert `v' == (`original' == `yesvalue') if !missing(`original')
+            qui assert missing(`v') if missing(`original')
+            qui assert inlist(`v', 0, 1) | missing(`v')
 
             loc recoded `recoded' `v'
             loc numeric_recoded `numeric_recoded' `v'
@@ -461,9 +494,9 @@ foreach v of local eligible {
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
 
-            assert `new' == (`v' == `yesvalue') if !missing(`v')
-            assert missing(`new') if missing(`v')
-            assert inlist(`new', 0, 1) | missing(`new')
+            qui assert `new' == (`v' == `yesvalue') if !missing(`v')
+            qui assert missing(`new') if missing(`v')
+            qui assert inlist(`new', 0, 1) | missing(`new')
 
             loc recoded `recoded' `new'
             loc numeric_recoded `numeric_recoded' `new'
@@ -480,7 +513,7 @@ foreach v of local eligible {
             "[^\p{L}\p{N}]+", "")
         qui g long `obsno' = _n
 
-        assert !ustrregexm(`protectedkey', "^\.[a-z]$")
+        qui assert !ustrregexm(`protectedkey', "^\.[a-z]$")
 
         qui su `obsno' if !inlist(`normalized', "", "."), meanonly
         loc first1 = r(min)
@@ -524,14 +557,16 @@ foreach v of local eligible {
 
             loc target "`yesvalue'"
 
-            di as txt "`v': storage type = string; classification = string-coded numeric binary"
-            if `yesvalue' == 1 {
-                di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
+            if `"`display'"' != "" {
+                di as txt "`v': storage type = string; classification = string-coded numeric binary"
+                if `yesvalue' == 1 {
+                    di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
+                }
+                else {
+                    di as txt `"  string "1" -> source 1 -> 0 (No); string "2" -> source 2 -> 1 (Yes)"'
+                }
+                di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
             }
-            else {
-                di as txt `"  string "1" -> source 1 -> 0 (No); string "2" -> source 2 -> 1 (Yes)"'
-            }
-            di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
         }
         else {
             _recode12_classify_pair, cat1(`"`cat1'"') cat2(`"`cat2'"')
@@ -584,22 +619,24 @@ foreach v of local eligible {
 
                 loc target `"`affirmative_value'"'
 
-                di as txt "`v': storage type = string; classification = directed string"
-                if `yesvalue' == 2 {
-                    di as txt `"  negative category: `negative_value' -> source 1 -> 0 (No)"'
-                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
-                }
-                else {
-                    di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
-                    di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
-                }
+                if `"`display'"' != "" {
+                    di as txt "`v': storage type = string; classification = directed string"
+                    if `yesvalue' == 2 {
+                        di as txt `"  negative category: `negative_value' -> source 1 -> 0 (No)"'
+                        di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
+                    }
+                    else {
+                        di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
+                        di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
+                    }
 
-                di as txt "  normalized keys: `key1' / `key2'"
-                di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
+                    di as txt "  normalized keys: `key1' / `key2'"
+                    di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
 
-                if `"`method'"' == "conservative fuzzy match" {
-                    di as txt "  matched canonical pair: `matched_affirmative' / `matched_negative'"
-                    di as txt "  edit distances by observed category: `distance1' / `distance2'"
+                    if `"`method'"' == "conservative fuzzy match" {
+                        di as txt "  matched canonical pair: `matched_affirmative' / `matched_negative'"
+                        di as txt "  edit distances by observed category: `distance1' / `distance2'"
+                    }
                 }
             }
             else {
@@ -614,25 +651,23 @@ foreach v of local eligible {
                 if `yesvalue' == 1 local target `"`cat1'"'
                 else local target `"`cat2'"'
 
-                di as txt "`v': storage type = string; classification = unordered string"
-                if `yesvalue' == 1 {
-                    di as txt `"  source category 1: `cat1' -> 1 (Yes)"'
-                    di as txt `"  source category 2: `cat2' -> 0 (No)"'
+                if `"`display'"' != "" {
+                    di as txt "`v': storage type = string; classification = unordered string"
+                    if `yesvalue' == 1 {
+                        di as txt `"  source category 1: `cat1' -> 1 (Yes)"'
+                        di as txt `"  source category 2: `cat2' -> 0 (No)"'
+                    }
+                    else {
+                        di as txt `"  source category 1: `cat1' -> 0 (No)"'
+                        di as txt `"  source category 2: `cat2' -> 1 (Yes)"'
+                    }
+                    di as txt "  mapping basis: first nonmissing appearance; yesvalue(`yesvalue')"
                 }
-                else {
-                    di as txt `"  source category 1: `cat1' -> 0 (No)"'
-                    di as txt `"  source category 2: `cat2' -> 1 (Yes)"'
-                }
-                di as txt "  mapping basis: first nonmissing appearance; yesvalue(`yesvalue')"
             }
         }
 
-        count if !inlist(`normalized', "", ".") & missing(`sourcecode')
-        assert r(N) == 0
-
-        loc target : subinstr local target `"' "'", all
-        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
-        loc newvl = ustrleft(`"`newvl'"', 80)
+        qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
+        qui assert r(N) == 0
 
         if `"`replace'"' != "" {
             tempvar newvalue
@@ -646,9 +681,9 @@ foreach v of local eligible {
             label variable `v' `"`newvl'"'
             label values `v' `vallab'
 
-            assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            assert missing(`v') if missing(`sourcecode')
-            assert inlist(`v', 0, 1) | missing(`v')
+            qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
+            qui assert missing(`v') if missing(`sourcecode')
+            qui assert inlist(`v', 0, 1) | missing(`v')
 
             loc recoded `recoded' `v'
             loc string_recoded `string_recoded' `v'
@@ -661,9 +696,9 @@ foreach v of local eligible {
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
 
-            assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            assert missing(`new') if missing(`sourcecode')
-            assert inlist(`new', 0, 1) | missing(`new')
+            qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
+            qui assert missing(`new') if missing(`sourcecode')
+            qui assert inlist(`new', 0, 1) | missing(`new')
 
             loc recoded `recoded' `new'
             loc string_recoded `string_recoded' `new'
@@ -738,7 +773,9 @@ if `"`display'"' != "" {
     else di as txt "names of string variables standardized: " as result "none"
 }
 
-di as txt "verification passed: all recoded values match the selected mapping rule"
+if `"`display'"' != "" {
+    di as txt "verification passed: all recoded values match the selected mapping rule"
+}
 
 return local value_label "`vallab'"
 return local status_variable "`statusvar'"
