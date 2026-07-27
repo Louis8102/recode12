@@ -1,4 +1,4 @@
-*! version 1.3.0  27jul2026
+*! version 1.3.1  27jul2026
 
 cap mata: mata drop recode12_levenshtein()
 cap mata: mata drop recode12_fuzzy_match()
@@ -430,7 +430,9 @@ if !_rc {
 
     if "`statustype'" != "strL" {
         loc statuswidth = real(substr("`statustype'", 4, .))
-        if `statuswidth' < 9 recast str9 `statusvar'
+        if `statuswidth' < 9 {
+            recast str9 `statusvar'
+        }
     }
 }
 
@@ -443,7 +445,9 @@ if `"`replace'"' == "" {
 
 loc vallab "recode12_NoYes"
 cap qui label list `vallab'
-if _rc label define `vallab' 0 "No" 1 "Yes"
+if _rc {
+    label define `vallab' 0 "No" 1 "Yes"
+}
 else {
     loc lab0 : label `vallab' 0
     loc lab1 : label `vallab' 1
@@ -469,7 +473,9 @@ loc string_recoded
 
 foreach v of local eligible {
     loc source_label : variable label `v'
-    if `"`source_label'"' == "" loc source_label "`v'"
+    if `"`source_label'"' == "" {
+        loc source_label "`v'"
+    }
 
     cap confirm numeric variable `v'
 
@@ -485,10 +491,16 @@ foreach v of local eligible {
 
         loc target
         if `"`source_vallab'"' != "" {
-            if `yesvalue' == 1 local target `"`cat1'"'
-            else local target `"`cat2'"'
+            if `yesvalue' == 1 {
+                loc target `"`cat1'"'
+            }
+            else {
+                loc target `"`cat2'"'
+            }
         }
-        if `"`target'"' == "" local target "`v' == `yesvalue'"
+        if `"`target'"' == "" {
+            loc target "`v' == `yesvalue'"
+        }
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -685,8 +697,12 @@ foreach v of local eligible {
                     `key' == `"`key2'"' & ///
                     !inlist(`normalized', "", ".")
 
-                if `yesvalue' == 1 local target `"`cat1'"'
-                else local target `"`cat2'"'
+                if `yesvalue' == 1 {
+                    loc target `"`cat1'"'
+                }
+                else {
+                    loc target `"`cat2'"'
+                }
 
                 if `"`display'"' != "" {
                     di as txt "`v': storage type = string; classification = unordered string"
