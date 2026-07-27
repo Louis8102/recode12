@@ -1,4 +1,4 @@
-*! version 1.2.7  27jul2026
+*! version 1.3.0  27jul2026
 
 cap mata: mata drop recode12_levenshtein()
 cap mata: mata drop recode12_fuzzy_match()
@@ -379,6 +379,18 @@ qui foreach v of local varlist {
         if r(N) == 0 {
             loc eligible `eligible' `v'
             loc string_eligible `string_eligible' `v'
+
+            loc normalized_`v' `normalized'
+            loc protectedkey_`v' `protectedkey'
+            loc key_`v' `matchkey'
+            loc sourcecode_`v' `sourcecode'
+            loc obsno_`v' `obsno'
+            loc first1_`v' = `first1'
+            loc first2_`v' = `first2'
+            loc key1_`v' `"`firstkey1'"'
+            loc key2_`v' `"`firstkey2'"'
+            loc cat1_`v' = `normalized'[`first1']
+            loc cat2_`v' = `normalized'[`first2']
         }
         else local skipped `skipped' `v'
     }
@@ -458,9 +470,6 @@ loc string_recoded
 foreach v of local eligible {
     loc source_label : variable label `v'
     if `"`source_label'"' == "" loc source_label "`v'"
-    loc source_label : subinstr local source_label `"' "'", all
-    loc newvl `"Recoded `source_label' (0=No; 1=Yes)"'
-    loc newvl = ustrleft(`"`newvl'"', 80)
 
     cap confirm numeric variable `v'
 
@@ -473,6 +482,17 @@ foreach v of local eligible {
             loc cat1 : label `source_vallab' 1
             loc cat2 : label `source_vallab' 2
         }
+
+        loc target
+        if `"`source_vallab'"' != "" {
+            if `yesvalue' == 1 local target `"`cat1'"'
+            else local target `"`cat2'"'
+        }
+        if `"`target'"' == "" local target "`v' == `yesvalue'"
+
+        loc target : subinstr local target `"' "'", all
+        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
+        loc newvl = ustrleft(`"`newvl'"', 80)
 
         if `"`replace'"' != "" {
             tempvar original
@@ -503,33 +523,19 @@ foreach v of local eligible {
         }
     }
     else {
-        tempvar normalized key protectedkey sourcecode obsno
-        qui g strL `normalized' = ustrtrim(`v')
-        qui g strL `protectedkey' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[\p{Z}\s]+", "")
-        qui g strL `key' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[^\p{L}\p{N}]+", "")
-        qui g long `obsno' = _n
+        loc normalized ``normalized_`v''
+        loc protectedkey ``protectedkey_`v''
+        loc key ``key_`v''
+        loc sourcecode ``sourcecode_`v''
+        loc obsno ``obsno_`v''
+        loc first1 = ``first1_`v''
+        loc first2 = ``first2_`v''
+        loc cat1 `"``cat1_`v''"'
+        loc cat2 `"``cat2_`v''"'
+        loc key1 `"``key1_`v''"'
+        loc key2 `"``key2_`v''"'
 
         qui assert !ustrregexm(`protectedkey', "^\.[a-z]$")
-
-        qui su `obsno' if !inlist(`normalized', "", "."), meanonly
-        loc first1 = r(min)
-        loc cat1 = `normalized'[`first1']
-        loc key1 = `key'[`first1']
-
-        qui g byte `sourcecode' = .
-        qui replace `sourcecode' = 1 if ///
-            `key' == `"`key1'"' & ///
-            !inlist(`normalized', "", ".")
-
-        qui su `obsno' if !inlist(`normalized', "", ".") & ///
-            missing(`sourcecode'), meanonly
-        loc first2 = r(min)
-        loc cat2 = `normalized'[`first2']
-        loc key2 = `key'[`first2']
 
         loc classification "unordered string"
         loc method "first nonmissing appearance"
@@ -555,7 +561,38 @@ foreach v of local eligible {
             qui replace `sourcecode' = 2 if ///
                 `key' == "2" & !inlist(`normalized', "", ".")
 
-            loc target "`yesvalue'"
+            loc target
+
+            * Extract the semantic meaning of source codes 1 and 2
+            * from the source variable label whenever available.
+            *
+            * Examples supported:
+            *   (1=Uninsured; 2=Insured)
+            *   (1 = No Access, 2 = Has Access)
+            *   (1=No/2=Yes)
+            loc code1_label
+            loc code2_label
+
+            if ustrregexm(`"`source_label'"', ///
+                "\([^()]*1\s*=\s*([^;,/\)]+)\s*[;,/]\s*2\s*=\s*([^\)]+)\)") {
+                loc code1_label = ustrtrim(ustrregexs(1))
+                loc code2_label = ustrtrim(ustrregexs(2))
+            }
+            else if ustrregexm(`"`source_label'"', ///
+                "1\s*=\s*([^;,/]+)\s*[;,/]\s*2\s*=\s*(.+)$") {
+                loc code1_label = ustrtrim(ustrregexs(1))
+                loc code2_label = ustrtrim(ustrregexs(2))
+            }
+
+            if `yesvalue' == 1 & `"`code1_label'"' != "" {
+                loc target `"`code1_label'"'
+            }
+            else if `yesvalue' == 2 & `"`code2_label'"' != "" {
+                loc target `"`code2_label'"'
+            }
+            else {
+                loc target "`yesvalue'"
+            }
 
             if `"`display'"' != "" {
                 di as txt "`v': storage type = string; classification = string-coded numeric binary"
@@ -668,6 +705,10 @@ foreach v of local eligible {
 
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
+
+        loc target : subinstr local target `"' "'", all
+        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
+        loc newvl = ustrleft(`"`newvl'"', 80)
 
         if `"`replace'"' != "" {
             tempvar newvalue
