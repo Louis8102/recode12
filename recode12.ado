@@ -1,4 +1,4 @@
-*! version 1.2.5  27jul2026
+*! version 1.2.6-fast  27jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -53,8 +53,10 @@ loc key2 `"`r(key)'"'
 
 loc pairs_en ///
     yes|no true|false positive|negative present|absent pass|fail passed|failed ///
+    passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
     attended|notattended attendance|nonattendance eligible|ineligible ///
-    eligible|noeligibility eligibility|ineligibility ///
+    eligible|noeligibility eligible|noeligiblity ///
+    eligibility|ineligibility ///
     approved|denied accepted|rejected complete|incomplete completed|incomplete ///
     employed|unemployed active|inactive crime|nocrime criminal|noncriminal
 
@@ -111,92 +113,7 @@ foreach pair of local pairs {
     }
 }
 
-if !`classified' {
-    loc ascii1 = ustrregexm(`"`key1'"', "^[a-z0-9]+$")
-    loc ascii2 = ustrregexm(`"`key2'"', "^[a-z0-9]+$")
 
-    if `ascii1' & `ascii2' {
-        loc limit1 = cond(strlen(`"`key1'"') <= 3, 0, ///
-            cond(strlen(`"`key1'"') <= 10, 1, 2))
-        loc limit2 = cond(strlen(`"`key2'"') <= 3, 0, ///
-            cond(strlen(`"`key2'"') <= 10, 1, 2))
-
-        loc bestscore = .
-        loc bestcount = 0
-        loc best_affirmative_category = .
-        loc best_negative_category = .
-        loc best_affirmative ""
-        loc best_negative ""
-        loc best_d1 = .
-        loc best_d2 = .
-
-        foreach pair of local pairs {
-            loc split = strpos(`"`pair'"', "|")
-            loc affirmative = substr(`"`pair'"', 1, `split' - 1)
-            loc negative = substr(`"`pair'"', `split' + 1, .)
-
-            if ustrregexm(`"`affirmative'"', "^[a-z0-9]+$") & ///
-                ustrregexm(`"`negative'"', "^[a-z0-9]+$") {
-
-                tempname d11 d12 d21 d22
-                mata: st_numscalar("`d11'", recode12_levenshtein(st_local("key1"), st_local("affirmative")))
-                mata: st_numscalar("`d12'", recode12_levenshtein(st_local("key1"), st_local("negative")))
-                mata: st_numscalar("`d21'", recode12_levenshtein(st_local("key2"), st_local("affirmative")))
-                mata: st_numscalar("`d22'", recode12_levenshtein(st_local("key2"), st_local("negative")))
-
-                loc a_d1 = scalar(`d11')
-                loc a_d2 = scalar(`d22')
-                loc b_d1 = scalar(`d12')
-                loc b_d2 = scalar(`d21')
-
-                if `a_d1' <= `limit1' & `a_d2' <= `limit2' {
-                    loc score = `a_d1' + `a_d2'
-                    if missing(`bestscore') | `score' < `bestscore' {
-                        loc bestscore = `score'
-                        loc bestcount = 1
-                        loc best_affirmative_category = 1
-                        loc best_negative_category = 2
-                        loc best_affirmative `"`affirmative'"'
-                        loc best_negative `"`negative'"'
-                        loc best_d1 = `a_d1'
-                        loc best_d2 = `a_d2'
-                    }
-                    else if `score' == `bestscore' {
-                        loc ++bestcount
-                    }
-                }
-
-                if `b_d1' <= `limit1' & `b_d2' <= `limit2' {
-                    loc score = `b_d1' + `b_d2'
-                    if missing(`bestscore') | `score' < `bestscore' {
-                        loc bestscore = `score'
-                        loc bestcount = 1
-                        loc best_affirmative_category = 2
-                        loc best_negative_category = 1
-                        loc best_affirmative `"`affirmative'"'
-                        loc best_negative `"`negative'"'
-                        loc best_d1 = `b_d1'
-                        loc best_d2 = `b_d2'
-                    }
-                    else if `score' == `bestscore' {
-                        loc ++bestcount
-                    }
-                }
-            }
-        }
-
-        if `bestcount' == 1 & !missing(`bestscore') {
-            loc classified = 1
-            loc affirmative_category = `best_affirmative_category'
-            loc negative_category = `best_negative_category'
-            loc method "conservative fuzzy match"
-            loc matched_affirmative `"`best_affirmative'"'
-            loc matched_negative `"`best_negative'"'
-            loc distance1 = `best_d1'
-            loc distance2 = `best_d2'
-        }
-    }
-}
 
 return scalar classified = `classified'
 return scalar affirmative_category = `affirmative_category'
@@ -448,9 +365,9 @@ foreach v of local eligible {
             label values `v' `vallab'
             label variable `v' `"`newvl'"'
 
-            assert `v' == (`original' == `yesvalue') if !missing(`original')
-            assert missing(`v') if missing(`original')
-            assert inlist(`v', 0, 1) | missing(`v')
+            qui assert `v' == (`original' == `yesvalue') if !missing(`original')
+            qui assert missing(`v') if missing(`original')
+            qui assert inlist(`v', 0, 1) | missing(`v')
 
             loc recoded `recoded' `v'
             loc numeric_recoded `numeric_recoded' `v'
@@ -461,9 +378,9 @@ foreach v of local eligible {
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
 
-            assert `new' == (`v' == `yesvalue') if !missing(`v')
-            assert missing(`new') if missing(`v')
-            assert inlist(`new', 0, 1) | missing(`new')
+            qui assert `new' == (`v' == `yesvalue') if !missing(`v')
+            qui assert missing(`new') if missing(`v')
+            qui assert inlist(`new', 0, 1) | missing(`new')
 
             loc recoded `recoded' `new'
             loc numeric_recoded `numeric_recoded' `new'
@@ -480,7 +397,7 @@ foreach v of local eligible {
             "[^\p{L}\p{N}]+", "")
         qui g long `obsno' = _n
 
-        assert !ustrregexm(`protectedkey', "^\.[a-z]$")
+        qui assert !ustrregexm(`protectedkey', "^\.[a-z]$")
 
         qui su `obsno' if !inlist(`normalized', "", "."), meanonly
         loc first1 = r(min)
@@ -523,6 +440,17 @@ foreach v of local eligible {
                 `key' == "2" & !inlist(`normalized', "", ".")
 
             loc target "`yesvalue'"
+            loc source_label : variable label `v'
+
+            if ustrregexm(`"`source_label'"', ///
+                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
+                if `yesvalue' == 1 {
+                    loc target = ustrtrim(ustrregexs(1))
+                }
+                else {
+                    loc target = ustrtrim(ustrregexs(2))
+                }
+            }
 
             di as txt "`v': storage type = string; classification = string-coded numeric binary"
             if `yesvalue' == 1 {
@@ -627,8 +555,8 @@ foreach v of local eligible {
             }
         }
 
-        count if !inlist(`normalized', "", ".") & missing(`sourcecode')
-        assert r(N) == 0
+        qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
+        qui assert r(N) == 0
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -646,9 +574,9 @@ foreach v of local eligible {
             label variable `v' `"`newvl'"'
             label values `v' `vallab'
 
-            assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            assert missing(`v') if missing(`sourcecode')
-            assert inlist(`v', 0, 1) | missing(`v')
+            qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
+            qui assert missing(`v') if missing(`sourcecode')
+            qui assert inlist(`v', 0, 1) | missing(`v')
 
             loc recoded `recoded' `v'
             loc string_recoded `string_recoded' `v'
@@ -661,9 +589,9 @@ foreach v of local eligible {
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
 
-            assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            assert missing(`new') if missing(`sourcecode')
-            assert inlist(`new', 0, 1) | missing(`new')
+            qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
+            qui assert missing(`new') if missing(`sourcecode')
+            qui assert inlist(`new', 0, 1) | missing(`new')
 
             loc recoded `recoded' `new'
             loc string_recoded `string_recoded' `new'
