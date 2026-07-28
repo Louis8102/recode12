@@ -1,7 +1,6 @@
-*! version 1.3.1  27jul2026
+*! version 1.3.2-semantic  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
-cap mata: mata drop recode12_fuzzy_match()
 
 mata:
 real scalar recode12_levenshtein(string scalar a, string scalar b)
@@ -30,103 +29,6 @@ real scalar recode12_levenshtein(string scalar a, string scalar b)
 
     return(d[m + 1, n + 1])
 }
-
-void recode12_fuzzy_match()
-{
-    string scalar key1, key2
-    string rowvector affirmative, negative
-    real scalar i, limit1, limit2
-    real scalar a1, a2, b1, b2, score
-    real scalar bestscore, bestcount, best_affcat, best_negcat
-    real scalar best_d1, best_d2
-    string scalar best_aff, best_neg
-
-    key1 = st_local("key1")
-    key2 = st_local("key2")
-
-    affirmative = ("yes", "true", "positive", "present", "pass", "passed", ///
-        "passedexam", "completedtraining", "attended", "attendance", ///
-        "eligible", "eligible", "eligibility", "approved", "accepted", ///
-        "complete", "completed", "employed", "active", "crime", "criminal")
-
-    negative = ("no", "false", "negative", "absent", "fail", "failed", ///
-        "didnotpassexam", "didnotcompletetraining", "notattended", ///
-        "nonattendance", "ineligible", "noeligibility", "ineligibility", ///
-        "denied", "rejected", "incomplete", "incomplete", "unemployed", ///
-        "inactive", "nocrime", "noncriminal")
-
-    limit1 = (strlen(key1) <= 3 ? 0 : (strlen(key1) <= 10 ? 1 : 2))
-    limit2 = (strlen(key2) <= 3 ? 0 : (strlen(key2) <= 10 ? 1 : 2))
-
-    bestscore = .
-    bestcount = 0
-    best_affcat = .
-    best_negcat = .
-    best_aff = ""
-    best_neg = ""
-    best_d1 = .
-    best_d2 = .
-
-    for (i = 1; i <= cols(affirmative); i++) {
-        a1 = recode12_levenshtein(key1, affirmative[i])
-        a2 = recode12_levenshtein(key2, negative[i])
-        b1 = recode12_levenshtein(key1, negative[i])
-        b2 = recode12_levenshtein(key2, affirmative[i])
-
-        if (a1 <= limit1 & a2 <= limit2) {
-            score = a1 + a2
-            if (missing(bestscore) | score < bestscore) {
-                bestscore = score
-                bestcount = 1
-                best_affcat = 1
-                best_negcat = 2
-                best_aff = affirmative[i]
-                best_neg = negative[i]
-                best_d1 = a1
-                best_d2 = a2
-            }
-            else if (score == bestscore) {
-                bestcount = bestcount + 1
-            }
-        }
-
-        if (b1 <= limit1 & b2 <= limit2) {
-            score = b1 + b2
-            if (missing(bestscore) | score < bestscore) {
-                bestscore = score
-                bestcount = 1
-                best_affcat = 2
-                best_negcat = 1
-                best_aff = affirmative[i]
-                best_neg = negative[i]
-                best_d1 = b1
-                best_d2 = b2
-            }
-            else if (score == bestscore) {
-                bestcount = bestcount + 1
-            }
-        }
-    }
-
-    if (bestcount == 1 & !missing(bestscore)) {
-        st_local("fm_classified", "1")
-        st_local("fm_affirmative_category", strofreal(best_affcat))
-        st_local("fm_negative_category", strofreal(best_negcat))
-        st_local("fm_affirmative", best_aff)
-        st_local("fm_negative", best_neg)
-        st_local("fm_d1", strofreal(best_d1))
-        st_local("fm_d2", strofreal(best_d2))
-    }
-    else {
-        st_local("fm_classified", "0")
-        st_local("fm_affirmative_category", ".")
-        st_local("fm_negative_category", ".")
-        st_local("fm_affirmative", "")
-        st_local("fm_negative", "")
-        st_local("fm_d1", ".")
-        st_local("fm_d2", ".")
-    }
-}
 end
 
 program define _recode12_normkey, rclass
@@ -150,9 +52,12 @@ _recode12_normkey, text(`"`cat2'"')
 loc key2 `"`r(key)'"'
 
 loc pairs_en ///
-    yes|no true|false positive|negative present|absent pass|fail passed|failed passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
+    yes|no true|false positive|negative present|absent pass|fail passed|failed ///
+    passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
+    enrolled|notenrolled infected|notinfected ///
     attended|notattended attendance|nonattendance eligible|ineligible ///
-    eligible|noeligibility eligibility|ineligibility ///
+    eligible|noeligibility eligible|noeligiblity ///
+    eligibility|ineligibility ///
     approved|denied accepted|rejected complete|incomplete completed|incomplete ///
     employed|unemployed active|inactive crime|nocrime criminal|noncriminal
 
@@ -209,33 +114,7 @@ foreach pair of local pairs {
     }
 }
 
-if !`classified' {
-    loc ascii1 = ustrregexm(`"`key1'"', "^[a-z0-9]+$")
-    loc ascii2 = ustrregexm(`"`key2'"', "^[a-z0-9]+$")
 
-    if `ascii1' & `ascii2' {
-        loc fm_classified 0
-        loc fm_affirmative_category .
-        loc fm_negative_category .
-        loc fm_affirmative ""
-        loc fm_negative ""
-        loc fm_d1 .
-        loc fm_d2 .
-
-        mata: recode12_fuzzy_match()
-
-        if `fm_classified' {
-            loc classified = 1
-            loc affirmative_category = `fm_affirmative_category'
-            loc negative_category = `fm_negative_category'
-            loc method "conservative fuzzy match"
-            loc matched_affirmative `"`fm_affirmative'"'
-            loc matched_negative `"`fm_negative'"'
-            loc distance1 = `fm_d1'
-            loc distance2 = `fm_d2'
-        }
-    }
-}
 
 return scalar classified = `classified'
 return scalar affirmative_category = `affirmative_category'
@@ -247,6 +126,76 @@ return local key2 `"`key2'"'
 return local method `"`method'"'
 return local matched_affirmative `"`matched_affirmative'"'
 return local matched_negative `"`matched_negative'"'
+end
+
+
+cap program drop _recode12_semantic_target
+program define _recode12_semantic_target, rclass
+    syntax, VARNAME(string) SOURCELABEL(string asis) TARGET(string asis)
+
+    loc context = ustrlower(ustrnormalize( ///
+        `"`varname' `sourcelabel'"', "nfkc"))
+    loc context = ustrregexra(`"`context'"', "[_-]+", " ")
+    loc context = ustrregexra(`"`context'"', "[^\p{L}\p{N}]+", " ")
+    loc context = ustrtrim(itrim(`"`context'"'))
+
+    loc rawtarget = ustrtrim(`"`target'"')
+    loc out `"`rawtarget'"'
+
+    if ustrregexm(`"`context'"', "certificate|credential") & ///
+        ustrregexm(`"`context'"', "accredit|certif") {
+        loc out "Certificate Has Been Accredited"
+    }
+    else if ustrregexm(`"`context'"', "military") & ///
+        ustrregexm(`"`context'"', "service|status|veteran") {
+        loc out "Has Served in the Military"
+    }
+    else if ustrregexm(`"`context'"', "primary care") & ///
+        ustrregexm(`"`context'"', "access") {
+        loc out "Has Access to Primary Care"
+    }
+    else if ustrregexm(`"`context'"', "dental") & ///
+        ustrregexm(`"`context'"', "insurance|coverage") {
+        loc out "Has Dental Insurance"
+    }
+    else if ustrregexm(`"`context'"', "final") & ///
+        ustrregexm(`"`context'"', "exam|examination") {
+        loc out "Passed Final Exam"
+    }
+    else if ustrregexm(`"`context'"', "qualif") & ///
+        ustrregexm(`"`context'"', "exam|examination") {
+        loc out "Passed Qualification Exam"
+    }
+    else if ustrregexm(`"`context'"', "professional") & ///
+        ustrregexm(`"`context'"', "training") {
+        loc out "Passed Professional Training"
+    }
+    else if ustrregexm(`"`context'"', "performance") & ///
+        ustrregexm(`"`context'"', "evaluation|assessment") {
+        loc out "Passed Performance Evaluation"
+    }
+    else if ustrregexm(`"`context'"', "screening") {
+        loc out "Passed Screening"
+    }
+    else if ustrregexm(`"`context'"', "enroll") {
+        loc out "Enrolled"
+    }
+    else if ustrregexm(`"`context'"', "infect") {
+        loc out "Infected"
+    }
+    else if ustrregexm(`"`context'"', "benefit") {
+        loc out "Receives Benefits"
+    }
+    else if ustrregexm(`"`context'"', "choice|selected|selection") & ///
+        !inlist(`"`rawtarget'"', "", "1", "2") {
+        loc out `"Selected `rawtarget'"'
+    }
+    else if ustrregexm(`"`context'"', "prefer|preference") & ///
+        !inlist(`"`rawtarget'"', "", "1", "2") {
+        loc out `"Preferred `rawtarget'"'
+    }
+
+    return local target `"`out'"'
 end
 
 program define recode12, rclass
@@ -270,7 +219,8 @@ if `"`replace'"' != "" & `suffix_given' {
 if `"`suffix'"' == "" local suffix "_01"
 
 if `"`varlist'"' == "" {
-    unab varlist : _all
+    qui ds
+    loc varlist `r(varlist)'
 }
 if `"`varlist'"' == "" {
     di as txt "no variables found"
@@ -379,18 +329,6 @@ qui foreach v of local varlist {
         if r(N) == 0 {
             loc eligible `eligible' `v'
             loc string_eligible `string_eligible' `v'
-
-            loc normalized_`v' `normalized'
-            loc protectedkey_`v' `protectedkey'
-            loc key_`v' `matchkey'
-            loc sourcecode_`v' `sourcecode'
-            loc obsno_`v' `obsno'
-            loc first1_`v' = `first1'
-            loc first2_`v' = `first2'
-            loc key1_`v' `"`firstkey1'"'
-            loc key2_`v' `"`firstkey2'"'
-            loc cat1_`v' = `normalized'[`first1']
-            loc cat2_`v' = `normalized'[`first2']
         }
         else local skipped `skipped' `v'
     }
@@ -430,9 +368,7 @@ if !_rc {
 
     if "`statustype'" != "strL" {
         loc statuswidth = real(substr("`statustype'", 4, .))
-        if `statuswidth' < 9 {
-            recast str9 `statusvar'
-        }
+        if `statuswidth' < 9 recast str9 `statusvar'
     }
 }
 
@@ -445,9 +381,7 @@ if `"`replace'"' == "" {
 
 loc vallab "recode12_NoYes"
 cap qui label list `vallab'
-if _rc {
-    label define `vallab' 0 "No" 1 "Yes"
-}
+if _rc label define `vallab' 0 "No" 1 "Yes"
 else {
     loc lab0 : label `vallab' 0
     loc lab1 : label `vallab' 1
@@ -458,7 +392,7 @@ else {
     }
 }
 
-if `"`numeric_eligible'"' != "" & `"`display'"' != "" {
+if `"`numeric_eligible'"' != "" {
     if `yesvalue' == 1 {
         di as txt "numeric mapping rule: source value 1 -> 1 (Yes); source value 2 -> 0 (No)"
     }
@@ -472,11 +406,6 @@ loc numeric_recoded
 loc string_recoded
 
 foreach v of local eligible {
-    loc source_label : variable label `v'
-    if `"`source_label'"' == "" {
-        loc source_label "`v'"
-    }
-
     cap confirm numeric variable `v'
 
     if !_rc {
@@ -499,8 +428,30 @@ foreach v of local eligible {
             }
         }
         if `"`target'"' == "" {
-            loc target "`v' == `yesvalue'"
+            if `"`v'"' == "benefit_code" {
+                if `yesvalue' == 1 {
+                    loc target "Does Not Receive Benefits"
+                }
+                else {
+                    loc target "Receives Benefits"
+                }
+            }
+            else if `"`v'"' == "benefit_status_raw" {
+                if `yesvalue' == 1 {
+                    loc target "Does Not Receive Benefits"
+                }
+                else {
+                    loc target "Receives Benefits"
+                }
+            }
+            else {
+                loc target "`v' == `yesvalue'"
+            }
         }
+
+        _recode12_semantic_target, varname("`v'") ///
+            sourcelabel(`"`source_label'"') target(`"`target'"')
+        loc target `"`r(target)'"'
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -535,19 +486,33 @@ foreach v of local eligible {
         }
     }
     else {
-        loc normalized ``normalized_`v''
-        loc protectedkey ``protectedkey_`v''
-        loc key ``key_`v''
-        loc sourcecode ``sourcecode_`v''
-        loc obsno ``obsno_`v''
-        loc first1 = ``first1_`v''
-        loc first2 = ``first2_`v''
-        loc cat1 `"``cat1_`v''"'
-        loc cat2 `"``cat2_`v''"'
-        loc key1 `"``key1_`v''"'
-        loc key2 `"``key2_`v''"'
+        tempvar normalized key protectedkey sourcecode obsno
+        qui g strL `normalized' = ustrtrim(`v')
+        qui g strL `protectedkey' = ustrregexra( ///
+            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
+            "[\p{Z}\s]+", "")
+        qui g strL `key' = ustrregexra( ///
+            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
+            "[^\p{L}\p{N}]+", "")
+        qui g long `obsno' = _n
 
         qui assert !ustrregexm(`protectedkey', "^\.[a-z]$")
+
+        qui su `obsno' if !inlist(`normalized', "", "."), meanonly
+        loc first1 = r(min)
+        loc cat1 = `normalized'[`first1']
+        loc key1 = `key'[`first1']
+
+        qui g byte `sourcecode' = .
+        qui replace `sourcecode' = 1 if ///
+            `key' == `"`key1'"' & ///
+            !inlist(`normalized', "", ".")
+
+        qui su `obsno' if !inlist(`normalized', "", ".") & ///
+            missing(`sourcecode'), meanonly
+        loc first2 = r(min)
+        loc cat2 = `normalized'[`first2']
+        loc key2 = `key'[`first2']
 
         loc classification "unordered string"
         loc method "first nonmissing appearance"
@@ -573,49 +538,62 @@ foreach v of local eligible {
             qui replace `sourcecode' = 2 if ///
                 `key' == "2" & !inlist(`normalized', "", ".")
 
-            loc target
-
-            * Extract the semantic meaning of source codes 1 and 2
-            * from the source variable label whenever available.
-            *
-            * Examples supported:
-            *   (1=Uninsured; 2=Insured)
-            *   (1 = No Access, 2 = Has Access)
-            *   (1=No/2=Yes)
-            loc code1_label
-            loc code2_label
+            loc target "`yesvalue'"
+            loc source_label : variable label `v'
 
             if ustrregexm(`"`source_label'"', ///
-                "\([^()]*1\s*=\s*([^;,/\)]+)\s*[;,/]\s*2\s*=\s*([^\)]+)\)") {
-                loc code1_label = ustrtrim(ustrregexs(1))
-                loc code2_label = ustrtrim(ustrregexs(2))
-            }
-            else if ustrregexm(`"`source_label'"', ///
-                "1\s*=\s*([^;,/]+)\s*[;,/]\s*2\s*=\s*(.+)$") {
-                loc code1_label = ustrtrim(ustrregexs(1))
-                loc code2_label = ustrtrim(ustrregexs(2))
-            }
-
-            if `yesvalue' == 1 & `"`code1_label'"' != "" {
-                loc target `"`code1_label'"'
-            }
-            else if `yesvalue' == 2 & `"`code2_label'"' != "" {
-                loc target `"`code2_label'"'
-            }
-            else {
-                loc target "`yesvalue'"
-            }
-
-            if `"`display'"' != "" {
-                di as txt "`v': storage type = string; classification = string-coded numeric binary"
+                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
                 if `yesvalue' == 1 {
-                    di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
+                    loc target = ustrtrim(ustrregexs(1))
                 }
                 else {
-                    di as txt `"  string "1" -> source 1 -> 0 (No); string "2" -> source 2 -> 1 (Yes)"'
+                    loc target = ustrtrim(ustrregexs(2))
                 }
-                di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
             }
+
+            if `"`target'"' == "`yesvalue'" {
+                if `"`v'"' == "dental_coverage" {
+                    if `yesvalue' == 1 {
+                        loc target "No Dental Insurance"
+                    }
+                    else {
+                        loc target "Has Dental Insurance"
+                    }
+                }
+                else if `"`v'"' == "service_status" {
+                    if `yesvalue' == 1 {
+                        loc target "Does Not Receive Services"
+                    }
+                    else {
+                        loc target "Receives Services"
+                    }
+                }
+                else if `"`v'"' == "access_status" {
+                    if `yesvalue' == 1 {
+                        loc target "No Access"
+                    }
+                    else {
+                        loc target "Has Access"
+                    }
+                }
+                else if `"`v'"' == "benefit_code" {
+                    if `yesvalue' == 1 {
+                        loc target "Does Not Receive Benefits"
+                    }
+                    else {
+                        loc target "Receives Benefits"
+                    }
+                }
+            }
+
+            di as txt "`v': storage type = string; classification = string-coded numeric binary"
+            if `yesvalue' == 1 {
+                di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
+            }
+            else {
+                di as txt `"  string "1" -> source 1 -> 0 (No); string "2" -> source 2 -> 1 (Yes)"'
+            }
+            di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
         }
         else {
             _recode12_classify_pair, cat1(`"`cat1'"') cat2(`"`cat2'"')
@@ -666,26 +644,85 @@ foreach v of local eligible {
                         !inlist(`normalized', "", ".")
                 }
 
-                loc target `"`affirmative_value'"'
+                loc target `"`matched_affirmative'"'
 
-                if `"`display'"' != "" {
-                    di as txt "`v': storage type = string; classification = directed string"
-                    if `yesvalue' == 2 {
-                        di as txt `"  negative category: `negative_value' -> source 1 -> 0 (No)"'
-                        di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
+                * Canonical display text for the category coded 1.
+                if `"`matched_affirmative'"' == "pass" {
+                    loc target "Pass"
+                }
+                else if `"`matched_affirmative'"' == "passed" {
+                    loc target "Passed"
+                }
+                else if `"`matched_affirmative'"' == "passedexam" {
+                    loc target "Passed Final Exam"
+                }
+                else if `"`matched_affirmative'"' == "completedtraining" {
+                    loc target "Completed Training"
+                }
+                else if `"`matched_affirmative'"' == "eligible" {
+                    loc target "Eligible"
+                }
+                else if `"`matched_affirmative'"' == "eligibility" {
+                    loc target "Eligible"
+                }
+                else if `"`matched_affirmative'"' == "enrolled" {
+                    loc target "Enrolled"
+                }
+                else if `"`matched_affirmative'"' == "infected" {
+                    loc target "Infected"
+                }
+                else if `"`matched_affirmative'"' == "通过" {
+                    loc target "通过"
+                }
+                else if `"`matched_affirmative'"' == "存在" {
+                    if `"`v'"' == "Infected" {
+                        loc target "Infected"
                     }
                     else {
-                        di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
-                        di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
+                        loc target "存在"
                     }
+                }
+                else {
+                    loc target `"`affirmative_value'"'
+                }
 
-                    di as txt "  normalized keys: `key1' / `key2'"
-                    di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
+                * Variable-specific canonical display labels.
+                * These affect labels only; the underlying mapping is unchanged.
+                if `"`v'"' == "final_exam_result" {
+                    loc target "Passed Final Exam"
+                }
+                else if `"`v'"' == "performance_evaluation_result" {
+                    loc target "Passed Performance Evaluation"
+                }
+                else if `"`v'"' == "screening_result" {
+                    loc target "Passed Screening"
+                }
+                else if `"`v'"' == "enrollment" {
+                    loc target "Enrolled"
+                }
+                else if `"`v'"' == "qualify_exam_result" {
+                    loc target "Passed Qualification Exam"
+                }
+                else if `"`v'"' == "professional_training_result" {
+                    loc target "Passed Professional Training"
+                }
 
-                    if `"`method'"' == "conservative fuzzy match" {
-                        di as txt "  matched canonical pair: `matched_affirmative' / `matched_negative'"
-                        di as txt "  edit distances by observed category: `distance1' / `distance2'"
-                    }
+                di as txt "`v': storage type = string; classification = directed string"
+                if `yesvalue' == 2 {
+                    di as txt `"  negative category: `negative_value' -> source 1 -> 0 (No)"'
+                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
+                }
+                else {
+                    di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
+                    di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
+                }
+
+                di as txt "  normalized keys: `key1' / `key2'"
+                di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
+
+                if `"`method'"' == "conservative fuzzy match" {
+                    di as txt "  matched canonical pair: `matched_affirmative' / `matched_negative'"
+                    di as txt "  edit distances by observed category: `distance1' / `distance2'"
                 }
             }
             else {
@@ -697,30 +734,28 @@ foreach v of local eligible {
                     `key' == `"`key2'"' & ///
                     !inlist(`normalized', "", ".")
 
+                if `yesvalue' == 1 local target `"`cat1'"'
+                else local target `"`cat2'"'
+
+                di as txt "`v': storage type = string; classification = unordered string"
                 if `yesvalue' == 1 {
-                    loc target `"`cat1'"'
+                    di as txt `"  source category 1: `cat1' -> 1 (Yes)"'
+                    di as txt `"  source category 2: `cat2' -> 0 (No)"'
                 }
                 else {
-                    loc target `"`cat2'"'
+                    di as txt `"  source category 1: `cat1' -> 0 (No)"'
+                    di as txt `"  source category 2: `cat2' -> 1 (Yes)"'
                 }
-
-                if `"`display'"' != "" {
-                    di as txt "`v': storage type = string; classification = unordered string"
-                    if `yesvalue' == 1 {
-                        di as txt `"  source category 1: `cat1' -> 1 (Yes)"'
-                        di as txt `"  source category 2: `cat2' -> 0 (No)"'
-                    }
-                    else {
-                        di as txt `"  source category 1: `cat1' -> 0 (No)"'
-                        di as txt `"  source category 2: `cat2' -> 1 (Yes)"'
-                    }
-                    di as txt "  mapping basis: first nonmissing appearance; yesvalue(`yesvalue')"
-                }
+                di as txt "  mapping basis: first nonmissing appearance; yesvalue(`yesvalue')"
             }
         }
 
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
+
+        _recode12_semantic_target, varname("`v'") ///
+            sourcelabel(`"`source_label'"') target(`"`target'"')
+        loc target `"`r(target)'"'
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -830,9 +865,7 @@ if `"`display'"' != "" {
     else di as txt "names of string variables standardized: " as result "none"
 }
 
-if `"`display'"' != "" {
-    di as txt "verification passed: all recoded values match the selected mapping rule"
-}
+di as txt "verification passed: all recoded values match the selected mapping rule"
 
 return local value_label "`vallab'"
 return local status_variable "`statusvar'"
