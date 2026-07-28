@@ -1,4 +1,4 @@
-*! version 1.4.2  28jul2026
+*! version 1.4.4  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -275,6 +275,34 @@ while 1 {
 return local requested "`requested'"
 return local generated "`candidate'"
 return scalar shortened = `shortened'
+end
+
+
+program define _recode12_require_complete_binary, rclass
+version 19.5
+syntax varname(numeric)
+
+qui count if `varlist' == 0
+loc n0 = r(N)
+qui count if `varlist' == 1
+loc n1 = r(N)
+qui count if missing(`varlist')
+loc nmiss = r(N)
+qui count if !missing(`varlist') & !inlist(`varlist', 0, 1)
+loc nother = r(N)
+
+if `nother' > 0 {
+    di as err "`varlist': only 0, 1, and missing are permitted after recoding"
+    exit 459
+}
+if `n0' == 0 | `n1' == 0 {
+    di as err "`varlist': both 0 and 1 must be present among nonmissing recoded values"
+    exit 459
+}
+
+return scalar n0 = `n0'
+return scalar n1 = `n1'
+return scalar nmissing = `nmiss'
 end
 
 program define recode12, rclass
@@ -691,6 +719,22 @@ foreach v of local eligible {
                 loc target `"`cat2'"'
             }
         }
+
+        * If no attached value label supplies the selected category,
+        * parse an explicit 1=...; 2=... definition from the variable label.
+        if `"`target'"' == "" {
+            loc source_varlabel : variable label `v'
+            if ustrregexm(`"`source_varlabel'"', ///
+                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
+                if `yesvalue' == 1 {
+                    loc target = ustrtrim(ustrregexs(1))
+                }
+                else {
+                    loc target = ustrtrim(ustrregexs(2))
+                }
+            }
+        }
+
         if `"`target'"' == "" {
             if `"`v'"' == "benefit_code" {
                 if `yesvalue' == 1 {
@@ -731,6 +775,7 @@ foreach v of local eligible {
             qui assert `v' == (`original' == `yesvalue') if !missing(`original')
             qui assert missing(`v') if missing(`original')
             qui assert inlist(`v', 0, 1) | missing(`v')
+            _recode12_require_complete_binary `v'
 
             loc recoded `recoded' `v'
             loc numeric_recoded `numeric_recoded' `v'
@@ -743,6 +788,7 @@ foreach v of local eligible {
             qui assert `new' == (`v' == `yesvalue') if !missing(`v')
             qui assert missing(`new') if missing(`v')
             qui assert inlist(`new', 0, 1) | missing(`new')
+            _recode12_require_complete_binary `new'
 
             loc recoded `recoded' `new'
             loc numeric_recoded `numeric_recoded' `new'
@@ -1088,6 +1134,7 @@ foreach v of local eligible {
             qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`v') if missing(`sourcecode')
             qui assert inlist(`v', 0, 1) | missing(`v')
+            _recode12_require_complete_binary `v'
 
             loc recoded `recoded' `v'
             loc string_recoded `string_recoded' `v'
@@ -1102,6 +1149,7 @@ foreach v of local eligible {
             qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`new') if missing(`sourcecode')
             qui assert inlist(`new', 0, 1) | missing(`new')
+            _recode12_require_complete_binary `new'
 
             loc recoded `recoded' `new'
             loc string_recoded `string_recoded' `new'
