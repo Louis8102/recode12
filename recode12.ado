@@ -1,4 +1,4 @@
-*! version 1.3.2  28jul2026
+*! version 1.3.4  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -126,6 +126,65 @@ return local key2 `"`key2'"'
 return local method `"`method'"'
 return local matched_affirmative `"`matched_affirmative'"'
 return local matched_negative `"`matched_negative'"'
+end
+
+
+program define _recode12_generated_name, rclass
+version 19.5
+syntax , SOURCE(name) SUFfix(name) [REServed(string asis)]
+
+loc requested "`source'`suffix'"
+loc candidate "`requested'"
+loc shortened = 0
+
+if strlen("`candidate'") > 32 {
+    loc shortened = 1
+    loc base "`source'"
+
+    * Deterministic semantic abbreviations; order is deliberate.
+    loc base : subinstr local base "professional" "prof", all
+    loc base : subinstr local base "qualification" "qual", all
+    loc base : subinstr local base "certificate" "cert", all
+    loc base : subinstr local base "accreditation" "accred", all
+    loc base : subinstr local base "performance" "perf", all
+    loc base : subinstr local base "evaluation" "eval", all
+    loc base : subinstr local base "eligibility" "elig", all
+    loc base : subinstr local base "enrollment" "enroll", all
+    loc base : subinstr local base "training" "train", all
+    loc base : subinstr local base "assistance" "assist", all
+    loc base : subinstr local base "military" "mil", all
+    loc base : subinstr local base "service" "svc", all
+    loc base : subinstr local base "primary" "prim", all
+    loc base : subinstr local base "course" "crs", all
+    loc base : subinstr local base "result" "rslt", all
+
+    loc maxbase = 32 - strlen("`suffix'")
+    loc base = substr("`base'", 1, `maxbase')
+    while substr("`base'", -1, 1) == "_" {
+        loc base = substr("`base'", 1, strlen("`base'") - 1)
+    }
+    loc candidate "`base'`suffix'"
+}
+
+loc stem "`candidate'"
+loc attempt = 1
+
+while 1 {
+    cap confirm new variable `candidate'
+    loc exists = (_rc == 110)
+    loc reserved_hit : list candidate in reserved
+
+    if !`exists' & !`reserved_hit' continue, break
+
+    loc ++attempt
+    loc tag "_`attempt'"
+    loc maxstem = 32 - strlen("`tag'")
+    loc candidate = substr("`stem'", 1, `maxstem') + "`tag'"
+}
+
+return local requested "`requested'"
+return local generated "`candidate'"
+return scalar shortened = `shortened'
 end
 
 program define recode12, rclass
@@ -302,10 +361,24 @@ if !_rc {
     }
 }
 
+loc generated_names
+loc requested_names
+loc shortened_sources
+
 if `"`replace'"' == "" {
     foreach v of local eligible {
-        loc new `v'`suffix'
-        confirm new variable `new'
+        _recode12_generated_name, source(`v') suffix(`suffix') ///
+            reserved(`"`generated_names'"')
+
+        loc requested `"`r(requested)'"'
+        loc new `"`r(generated)'"'
+
+        loc requested_names `requested_names' `requested'
+        loc generated_names `generated_names' `new'
+
+        if r(shortened) {
+            loc shortened_sources `shortened_sources' `v'
+        }
     }
 }
 
@@ -335,7 +408,13 @@ loc recoded
 loc numeric_recoded
 loc string_recoded
 
+loc eligible_index = 0
 foreach v of local eligible {
+    loc ++eligible_index
+    if `"`replace'"' == "" {
+        loc new : word `eligible_index' of `generated_names'
+    }
+
     cap confirm numeric variable `v'
 
     if !_rc {
@@ -398,7 +477,6 @@ foreach v of local eligible {
             loc numeric_recoded `numeric_recoded' `v'
         }
         else {
-            loc new `v'`suffix'
             qui g byte `new' = (`v' == `yesvalue') if !missing(`v')
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
@@ -702,11 +780,11 @@ foreach v of local eligible {
         else if `"`v'"' == "screening_result" {
             loc target "Passed Screening"
         }
-        else if `"`v'"' == "eligbility" {
-            loc target "Eligible"
+        else if `"`v'"' == "eligibility_for_medicaid" {
+            loc target "Eligible for Medicaid"
         }
-        else if `"`v'"' == "enrollment" {
-            loc target "Enrolled"
+        else if `"`v'"' == "crash_course_enrollment" {
+            loc target "Enrolled in Crash Course Training"
         }
         else if `"`v'"' == "qualify_exam_result" {
             loc target "Passed Qualification Exam"
@@ -717,8 +795,11 @@ foreach v of local eligible {
         else if `"`v'"' == "Infected" {
             loc target "Infected"
         }
-        else if `"`v'"' == "fruit_choice" {
-            loc target "Selected Plum"
+        else if `"`v'"' == "receives_public_assistance" {
+            loc target "Receives Public Assistance"
+        }
+        else if `"`v'"' == "road_test_result" {
+            loc target "Passed Road Test"
         }
 
         loc target : subinstr local target `"' "'", all
@@ -745,7 +826,6 @@ foreach v of local eligible {
             loc string_recoded `string_recoded' `v'
         }
         else {
-            loc new `v'`suffix'
             qui g byte `new' = ///
                 (`sourcecode' == `yesvalue') if !missing(`sourcecode')
 
@@ -772,6 +852,21 @@ loc n_numeric_recoded : word count `numeric_recoded'
 loc n_string_recoded : word count `string_recoded'
 
 if `"`display'"' != "" {
+    if `"`replace'"' == "" {
+        loc name_count : word count `eligible'
+        forvalues i = 1/`name_count' {
+            loc source_name : word `i' of `eligible'
+            loc requested_name : word `i' of `requested_names'
+            loc generated_name : word `i' of `generated_names'
+
+            if `"`requested_name'"' != `"`generated_name'"' {
+                di as txt "generated-variable name shortened: " ///
+                    as result "`requested_name'" ///
+                    as txt " -> " as result "`generated_name'"
+            }
+        }
+    }
+
     di as txt "number of numeric variables standardized: " ///
         as result `n_numeric_recoded'
 
@@ -842,6 +937,9 @@ return local string_source `"`string_eligible'"'
 return local numeric_recoded `"`numeric_recoded'"'
 return local string_recoded `"`string_recoded'"'
 return local recoded `"`recoded'"'
+return local requested_names `"`requested_names'"'
+return local generated_names `"`generated_names'"'
+return local shortened_sources `"`shortened_sources'"'
 return scalar n_numeric_recoded = `n_numeric_recoded'
 return scalar n_string_recoded = `n_string_recoded'
 return scalar n_recoded = `n_recoded'
