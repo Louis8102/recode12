@@ -1,4 +1,4 @@
-*! version 1.4.1  28jul2026
+*! version 1.4.2  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -279,7 +279,7 @@ end
 
 program define recode12, rclass
 version 19.5
-syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) REPlace DISPlay]
+syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) REPlace DISPlay PERMissive]
 
 if `"`yesvalue'"' == "" {
     di as err "yesvalue() is required; specify yesvalue(1) or yesvalue(2)"
@@ -437,6 +437,9 @@ qui foreach v of local varlist {
 *------------------------------------------------------------*
 
 loc structural_eligible `eligible'
+loc structural_numeric_eligible `numeric_eligible'
+loc structural_string_eligible `string_eligible'
+
 loc eligible
 loc numeric_eligible
 loc string_eligible
@@ -446,7 +449,15 @@ loc complete_semantic_source
 loc semantic_sources
 loc semantic_levels
 
-qui foreach v of local structural_eligible {
+if `"`permissive'"' != "" {
+    di as err "Warning: permissive mode restores the less restrictive recoding behavior used in earlier recode12 versions. Variables with incomplete semantic information may be recoded. Review the results before use."
+
+    loc eligible `structural_eligible'
+    loc numeric_eligible `structural_numeric_eligible'
+    loc string_eligible `structural_string_eligible'
+}
+else {
+    qui foreach v of local structural_eligible {
     _recode12_name_semantics, source(`v')
     loc meaningful_name = r(meaningful)
 
@@ -546,6 +557,7 @@ qui foreach v of local structural_eligible {
         loc semantic_sources `"`semantic_sources' `v':`semantic_source'"'
         loc semantic_levels `"`semantic_levels' `v':complete"'
     }
+}
 }
 
 loc n_skipped_no_semantics : word count `skipped_no_semantics'
