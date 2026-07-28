@@ -1,35 +1,15 @@
-*! version 1.4.4  28jul2026
+*! version 1.4.4b  28jul2026
 
-cap mata: mata drop recode12_levenshtein()
 
-mata:
-real scalar recode12_levenshtein(string scalar a, string scalar b)
-{
-    real scalar i, j, m, n, cost
-    real matrix d
-
-    m = strlen(a)
-    n = strlen(b)
-
-    if (m == 0) return(n)
-    if (n == 0) return(m)
-
-    d = J(m + 1, n + 1, 0)
-    for (i = 1; i <= m + 1; i++) d[i, 1] = i - 1
-    for (j = 1; j <= n + 1; j++) d[1, j] = j - 1
-
-    for (i = 2; i <= m + 1; i++) {
-        for (j = 2; j <= n + 1; j++) {
-            cost = (substr(a, i - 1, 1) == substr(b, j - 1, 1) ? 0 : 1)
-            d[i, j] = min((d[i - 1, j] + 1, ///
-                           d[i, j - 1] + 1, ///
-                           d[i - 1, j - 1] + cost))
-        }
-    }
-
-    return(d[m + 1, n + 1])
-}
-end
+capture program drop recode12
+capture program drop _recode12_normkey
+capture program drop _recode12_classify_pair
+capture program drop _recode12_name_semantics
+capture program drop _recode12_text_semantics
+capture program drop _recode12_value_pair_semantics
+capture program drop _recode12_opaque_categories
+capture program drop _recode12_generated_name
+capture program drop _recode12_check01
 
 program define _recode12_normkey, rclass
 version 19.5
@@ -278,7 +258,7 @@ return scalar shortened = `shortened'
 end
 
 
-program define _recode12_require_complete_binary, rclass
+program define _recode12_check01, rclass
 version 19.5
 syntax varname(numeric)
 
@@ -775,7 +755,7 @@ foreach v of local eligible {
             qui assert `v' == (`original' == `yesvalue') if !missing(`original')
             qui assert missing(`v') if missing(`original')
             qui assert inlist(`v', 0, 1) | missing(`v')
-            _recode12_require_complete_binary `v'
+            _recode12_check01 `v'
 
             loc recoded `recoded' `v'
             loc numeric_recoded `numeric_recoded' `v'
@@ -788,7 +768,7 @@ foreach v of local eligible {
             qui assert `new' == (`v' == `yesvalue') if !missing(`v')
             qui assert missing(`new') if missing(`v')
             qui assert inlist(`new', 0, 1) | missing(`new')
-            _recode12_require_complete_binary `new'
+            _recode12_check01 `new'
 
             loc recoded `recoded' `new'
             loc numeric_recoded `numeric_recoded' `new'
@@ -1134,7 +1114,7 @@ foreach v of local eligible {
             qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`v') if missing(`sourcecode')
             qui assert inlist(`v', 0, 1) | missing(`v')
-            _recode12_require_complete_binary `v'
+            _recode12_check01 `v'
 
             loc recoded `recoded' `v'
             loc string_recoded `string_recoded' `v'
@@ -1149,7 +1129,7 @@ foreach v of local eligible {
             qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`new') if missing(`sourcecode')
             qui assert inlist(`new', 0, 1) | missing(`new')
-            _recode12_require_complete_binary `new'
+            _recode12_check01 `new'
 
             loc recoded `recoded' `new'
             loc string_recoded `string_recoded' `new'
