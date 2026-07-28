@@ -1,4 +1,4 @@
-*! version 1.3.4  28jul2026
+*! version 1.3.5-minimal-fix  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -454,7 +454,11 @@ foreach v of local eligible {
                 }
             }
             else {
-                loc target "`v' == `yesvalue'"
+                * Minimal numeric fallback:
+                * remove "== 1/2" and convert the source variable name
+                * to readable title-style text.
+                loc target : subinstr local v "_" " ", all
+                loc target = strproper(`"`target'"')
             }
         }
 
