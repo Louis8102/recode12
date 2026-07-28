@@ -1,4 +1,4 @@
-*! version 1.4.2-y1general  28jul2026
+*! version 1.4.2-numlabel-permanent  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -683,6 +683,9 @@ foreach v of local eligible {
         }
 
         loc target
+
+        * Priority 1: attached value-label text for the source category
+        * selected by yesvalue().
         if `"`source_vallab'"' != "" {
             if `yesvalue' == 1 {
                 loc target `"`cat1'"'
@@ -691,16 +694,85 @@ foreach v of local eligible {
                 loc target `"`cat2'"'
             }
         }
+
+        * Priority 2: explicit category definitions embedded in the
+        * variable label, such as:
+        * Race (1=White; 2=Non-White)
         if `"`target'"' == "" {
-            if `"`v'"' == "benefit_code" {
+            loc source_label : variable label `v'
+            loc parse_label = subinstr(`"`source_label'"', ",", ";", .)
+
+            if ustrregexm(`"`parse_label'"', ///
+                "1[ ]*=[ ]*([^;|/)]+)[ ]*[;|/][ ]*2[ ]*=[ ]*([^)]+)") {
+
+                loc category1 = ustrtrim(ustrregexs(1))
+                loc category2 = ustrtrim(ustrregexs(2))
+
                 if `yesvalue' == 1 {
-                    loc target "Does Not Receive Benefits"
+                    loc target `"`category1'"'
                 }
                 else {
-                    loc target "Receives Benefits"
+                    loc target `"`category2'"'
                 }
             }
-            else if `"`v'"' == "benefit_status_raw" {
+        }
+
+        * Priority 3: general predicate-name fallback when category
+        * metadata is absent. This is rule based, not variable specific.
+        if `"`target'"' == "" {
+            loc readable : subinstr local v "_" " ", all
+            loc readable = strproper(`"`readable'"')
+            loc lowername = lower("`v'")
+
+            if strpos("`lowername'", "contains_") == 1 {
+                loc object = substr("`v'", 10, .)
+                loc object : subinstr local object "_" " ", all
+                loc object = strproper(`"`object'"')
+
+                if `yesvalue' == 1 {
+                    loc target "Does Not Contain `object'"
+                }
+                else {
+                    loc target "Contains `object'"
+                }
+            }
+            else if strpos("`lowername'", "has_") == 1 {
+                loc object = substr("`v'", 5, .)
+                loc object : subinstr local object "_" " ", all
+                loc object = strproper(`"`object'"')
+
+                if `yesvalue' == 1 {
+                    loc target "Does Not Have `object'"
+                }
+                else {
+                    loc target "Has `object'"
+                }
+            }
+            else if strpos("`lowername'", "receives_") == 1 {
+                loc object = substr("`v'", 10, .)
+                loc object : subinstr local object "_" " ", all
+                loc object = strproper(`"`object'"')
+
+                if `yesvalue' == 1 {
+                    loc target "Does Not Receive `object'"
+                }
+                else {
+                    loc target "Receives `object'"
+                }
+            }
+            else if strpos("`lowername'", "eligible_") == 1 | ///
+                strpos("`lowername'", "eligibility_") == 1 {
+
+                if `yesvalue' == 1 {
+                    loc target "Not `readable'"
+                }
+                else {
+                    loc target `"`readable'"'
+                }
+            }
+            else if `"`v'"' == "benefit_code" | ///
+                `"`v'"' == "benefit_status_raw" {
+
                 if `yesvalue' == 1 {
                     loc target "Does Not Receive Benefits"
                 }
@@ -709,11 +781,9 @@ foreach v of local eligible {
                 }
             }
             else {
-                * Minimal numeric fallback:
-                * remove "== 1/2" and convert the source variable name
-                * to readable title-style text.
-                loc target : subinstr local v "_" " ", all
-                loc target = strproper(`"`target'"')
+                * No semantic evidence exists. Use a neutral, truthful
+                * category label instead of inventing an opposite meaning.
+                loc target `"Category `yesvalue' of `readable'"'
             }
         }
 
@@ -890,30 +960,34 @@ foreach v of local eligible {
                     loc negative_value `"`cat1'"'
                 }
 
-                loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
-                loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
+                if `yesvalue' == 2 {
+                    loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
+                    loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
 
-                * Stable directed-string source coding:
-                * negative category = source 1
-                * affirmative category = source 2
-                qui replace `sourcecode' = 1 if ///
-                    `key' == `"`negative_key'"' & ///
-                    !inlist(`normalized', "", ".")
+                    qui replace `sourcecode' = 2 if ///
+                        `key' == `"`affirmative_key'"' & ///
+                        !inlist(`normalized', "", ".")
 
-                qui replace `sourcecode' = 2 if ///
-                    `key' == `"`affirmative_key'"' & ///
-                    !inlist(`normalized', "", ".")
-
-                if `yesvalue' == 1 {
-                    loc target `"`negative_value'"'
+                    qui replace `sourcecode' = 1 if ///
+                        `key' == `"`negative_key'"' & ///
+                        !inlist(`normalized', "", ".")
                 }
                 else {
-                    loc target `"`matched_affirmative'"'
+                    loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
+                    loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
+
+                    qui replace `sourcecode' = 1 if ///
+                        `key' == `"`affirmative_key'"' & ///
+                        !inlist(`normalized', "", ".")
+
+                    qui replace `sourcecode' = 2 if ///
+                        `key' == `"`negative_key'"' & ///
+                        !inlist(`normalized', "", ".")
                 }
 
-                * Canonical affirmative display text applies only when
-                * yesvalue(2) selects the affirmative source category.
-                if `yesvalue' == 2 {
+                loc target `"`matched_affirmative'"'
+
+                * Canonical display text for the category coded 1.
                 if `"`matched_affirmative'"' == "pass" {
                     loc target "Pass"
                 }
@@ -952,26 +1026,25 @@ foreach v of local eligible {
                 else {
                     loc target `"`affirmative_value'"'
                 }
-                }
 
-                * Variable-specific affirmative label enhancements.
-                * These may run only when yesvalue(2) selects the affirmative category.
-                if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
+                * Variable-specific canonical display labels.
+                * These affect labels only; the underlying mapping is unchanged.
+                if `"`v'"' == "final_exam_result" {
                     loc target "Passed Final Exam"
                 }
-                else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
+                else if `"`v'"' == "performance_evaluation_result" {
                     loc target "Passed Performance Evaluation"
                 }
-                else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
+                else if `"`v'"' == "screening_result" {
                     loc target "Passed Screening"
                 }
-                else if `yesvalue' == 2 & `"`v'"' == "enrollment" {
+                else if `"`v'"' == "enrollment" {
                     loc target "Enrolled"
                 }
-                else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
+                else if `"`v'"' == "qualify_exam_result" {
                     loc target "Passed Qualification Exam"
                 }
-                else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
+                else if `"`v'"' == "professional_training_result" {
                     loc target "Passed Professional Training"
                 }
 
@@ -981,8 +1054,8 @@ foreach v of local eligible {
                     di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
                 }
                 else {
-                    di as txt `"  negative category: `negative_value' -> source 1 -> 1 (Yes)"'
-                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 0 (No)"'
+                    di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
+                    di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
                 }
 
                 di as txt "  normalized keys: `key1' / `key2'"
@@ -1021,48 +1094,48 @@ foreach v of local eligible {
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
 
-        * Variable-specific affirmative semantic enhancements.
-        * These may never override the source category selected by yesvalue(1).
-        if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
+        * Variable-specific semantic display labels.
+        * Mapping logic is unchanged; only the generated variable label is overridden.
+        if `"`v'"' == "final_exam_result" {
             loc target "Passed Final Exam"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "dental_coverage" {
+        else if `"`v'"' == "dental_coverage" {
             loc target "Has Dental Insurance"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "military_service_status" {
+        else if `"`v'"' == "military_service_status" {
             loc target "Has Served in the Military"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "primary_care_access" {
+        else if `"`v'"' == "primary_care_access" {
             loc target "Has Access to Primary Care"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "certificate_accreditation" {
+        else if `"`v'"' == "certificate_accreditation" {
             loc target "Certificate Has Been Accredited"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
+        else if `"`v'"' == "performance_evaluation_result" {
             loc target "Passed Performance Evaluation"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
+        else if `"`v'"' == "screening_result" {
             loc target "Passed Screening"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "eligibility_for_medicaid" {
+        else if `"`v'"' == "eligibility_for_medicaid" {
             loc target "Eligible for Medicaid"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "crash_course_enrollment" {
+        else if `"`v'"' == "crash_course_enrollment" {
             loc target "Enrolled in Crash Course Training"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
+        else if `"`v'"' == "qualify_exam_result" {
             loc target "Passed Qualification Exam"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
+        else if `"`v'"' == "professional_training_result" {
             loc target "Passed Professional Training"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "Infected" {
+        else if `"`v'"' == "Infected" {
             loc target "Infected"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "receives_public_assistance" {
+        else if `"`v'"' == "receives_public_assistance" {
             loc target "Receives Public Assistance"
         }
-        else if `yesvalue' == 2 & `"`v'"' == "road_test_result" {
+        else if `"`v'"' == "road_test_result" {
             loc target "Passed Road Test"
         }
 
