@@ -1,4 +1,4 @@
-*! version 1.3.5-minimal-fix  28jul2026
+*! version 1.4.1  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -129,6 +129,96 @@ return local matched_negative `"`matched_negative'"'
 end
 
 
+program define _recode12_name_semantics, rclass
+version 19.5
+syntax , SOURCE(name)
+
+loc source_key = ustrlower(ustrnormalize(ustrtrim("`source'"), "nfkc"))
+loc source_key = ustrregexra("`source_key'", "[^\p{L}\p{N}]+", "")
+
+loc generic = 0
+if ustrregexm("`source_key'", ///
+    "^(v|var|x|item|column|col|q|field|note|notes|code)[0-9]*$") {
+    loc generic = 1
+}
+
+return scalar generic = `generic'
+return scalar meaningful = !`generic'
+return local key "`source_key'"
+end
+
+program define _recode12_text_semantics, rclass
+version 19.5
+syntax , TEXT(string asis)
+
+loc key = ustrlower(ustrnormalize(ustrtrim(`"`text'"'), "nfkc"))
+loc key = ustrregexra(`"`key'"', "[^\p{L}\p{N}]+", "")
+
+loc generic = 0
+if `"`key'"' == "" {
+    loc generic = 1
+}
+else if ustrregexm(`"`key'"', ///
+    "^(status|response|responsecategory|classification|classificationcode|group|level|note|notes|field|administrativefield|category|categories|type|code|option|answer|result|variable|item|measure|indicator|unknown|unspecified)$") {
+    loc generic = 1
+}
+
+return scalar generic = `generic'
+return scalar meaningful = !`generic'
+return local key `"`key'"'
+end
+
+program define _recode12_value_pair_semantics, rclass
+version 19.5
+syntax , LABEL1(string asis) LABEL2(string asis)
+
+_recode12_text_semantics, text(`"`label1'"')
+loc key1 `"`r(key)'"'
+loc meaningful1 = r(meaningful)
+
+_recode12_text_semantics, text(`"`label2'"')
+loc key2 `"`r(key)'"'
+loc meaningful2 = r(meaningful)
+
+loc opaque = 0
+if inlist(`"`key1'"', "1", "2") & inlist(`"`key2'"', "1", "2") {
+    loc opaque = 1
+}
+else if ustrregexm(`"`key1'"', "^(type|code|category|group|class|level|option)[12abxy]$") & ///
+        ustrregexm(`"`key2'"', "^(type|code|category|group|class|level|option)[12abxy]$") {
+    loc opaque = 1
+}
+else if ustrregexm(`"`key1'"', "^[abxy]$") & ustrregexm(`"`key2'"', "^[abxy]$") {
+    loc opaque = 1
+}
+
+return scalar meaningful = (`meaningful1' & `meaningful2' & !`opaque')
+return scalar opaque = `opaque'
+return local key1 `"`key1'"'
+return local key2 `"`key2'"'
+end
+
+program define _recode12_opaque_categories, rclass
+version 19.5
+syntax , KEY1(string asis) KEY2(string asis)
+
+loc opaque = 0
+
+if inlist("`key1'", "1", "2") & inlist("`key2'", "1", "2") {
+    loc opaque = 1
+}
+else if ustrregexm("`key1'", "^[abxy]$") & ///
+        ustrregexm("`key2'", "^[abxy]$") {
+    loc opaque = 1
+}
+else if ustrregexm("`key1'", "^(category|group|class|level|option)[12abxy]$") & ///
+        ustrregexm("`key2'", "^(category|group|class|level|option)[12abxy]$") {
+    loc opaque = 1
+}
+
+return scalar opaque = `opaque'
+end
+
 program define _recode12_generated_name, rclass
 version 19.5
 syntax , SOURCE(name) SUFfix(name) [REServed(string asis)]
@@ -222,6 +312,14 @@ if `"`varlist'"' == "" {
     return local recoded ""
     return local value_label ""
     return local status_variable ""
+    return local skipped_no_semantics ""
+    return local partial_semantic_source ""
+    return local complete_semantic_source ""
+    return local semantic_sources ""
+    return local semantic_levels ""
+    return scalar n_skipped_no_semantics = 0
+    return scalar n_partial_semantic = 0
+    return scalar n_complete_semantic = 0
     return scalar yesvalue = `yesvalue'
     return scalar verified = 0
     return scalar n_numeric_recoded = 0
@@ -323,8 +421,139 @@ qui foreach v of local varlist {
     }
 }
 
+*------------------------------------------------------------*
+* V18 tightened semantic-identifiability gate
+*
+* Binary structure and mapping direction are not sufficient.
+* At least one source must identify the substantive construct:
+*   1. meaningful attached value labels,
+*   2. a meaningful and parseable variable label, or
+*   3. a meaningful source variable name.
+*
+* Cell categories alone (including Passed/Failed, Yes/No,
+* Positive/Negative, High/Low, Peach/Plum, A/B, or "1"/"2")
+* may help identify direction, but cannot independently justify
+* creating a substantive generated variable.
+*------------------------------------------------------------*
+
+loc structural_eligible `eligible'
+loc eligible
+loc numeric_eligible
+loc string_eligible
+loc skipped_no_semantics
+loc partial_semantic_source
+loc complete_semantic_source
+loc semantic_sources
+loc semantic_levels
+
+qui foreach v of local structural_eligible {
+    _recode12_name_semantics, source(`v')
+    loc meaningful_name = r(meaningful)
+
+    loc source_label : variable label `v'
+    _recode12_text_semantics, text(`"`source_label'"')
+    loc meaningful_varlabel = r(meaningful)
+
+    loc parseable_coding_label = ustrregexm(`"`source_label'"', ///
+        "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)")
+
+    loc coding_label1
+    loc coding_label2
+    loc meaningful_coding_pair = 0
+    if `parseable_coding_label' {
+        loc coding_label1 = ustrtrim(ustrregexs(1))
+        loc coding_label2 = ustrtrim(ustrregexs(2))
+        _recode12_value_pair_semantics, ///
+            label1(`"`coding_label1'"') label2(`"`coding_label2'"')
+        loc meaningful_coding_pair = r(meaningful)
+    }
+
+    cap confirm numeric variable `v'
+    if !_rc {
+        loc source_vallab : value label `v'
+        loc value_label1
+        loc value_label2
+        loc meaningful_value_pair = 0
+
+        if `"`source_vallab'"' != "" {
+            loc value_label1 : label `source_vallab' 1
+            loc value_label2 : label `source_vallab' 2
+            _recode12_value_pair_semantics, ///
+                label1(`"`value_label1'"') label2(`"`value_label2'"')
+            loc meaningful_value_pair = r(meaningful)
+        }
+
+        loc semantic_level "none"
+        loc semantic_source "none"
+
+        if `meaningful_value_pair' {
+            loc semantic_level "complete"
+            loc semantic_source "value labels"
+        }
+        else if `parseable_coding_label' & `meaningful_coding_pair' & `meaningful_varlabel' {
+            loc semantic_level "complete"
+            loc semantic_source "variable label coding definition"
+        }
+        else if `meaningful_name' {
+            loc semantic_level "complete"
+            loc semantic_source "variable name"
+        }
+        else if `meaningful_varlabel' & !`parseable_coding_label' {
+            * A substantive construct label may identify what the
+            * variable measures, but without category meanings the
+            * direction of bare numeric 1/2 remains unverified.
+            loc semantic_level "none"
+            loc semantic_source "none"
+        }
+
+        if `"`semantic_level'"' == "none" {
+            loc skipped_no_semantics `skipped_no_semantics' `v'
+            loc skipped `skipped' `v'
+            continue
+        }
+
+        loc eligible `eligible' `v'
+        loc numeric_eligible `numeric_eligible' `v'
+        loc complete_semantic_source `complete_semantic_source' `v'
+        loc semantic_sources `"`semantic_sources' `v':`semantic_source'"'
+        loc semantic_levels `"`semantic_levels' `v':complete"'
+    }
+    else {
+        * For string variables, observed categories may establish
+        * coding direction, but the construct must still come from
+        * a meaningful variable name or variable label.
+        loc semantic_level "none"
+        loc semantic_source "none"
+
+        if `meaningful_name' {
+            loc semantic_level "complete"
+            loc semantic_source "variable name plus cell categories"
+        }
+        else if `meaningful_varlabel' {
+            loc semantic_level "complete"
+            loc semantic_source "variable label plus cell categories"
+        }
+
+        if `"`semantic_level'"' == "none" {
+            loc skipped_no_semantics `skipped_no_semantics' `v'
+            loc skipped `skipped' `v'
+            continue
+        }
+
+        loc eligible `eligible' `v'
+        loc string_eligible `string_eligible' `v'
+        loc complete_semantic_source `complete_semantic_source' `v'
+        loc semantic_sources `"`semantic_sources' `v':`semantic_source'"'
+        loc semantic_levels `"`semantic_levels' `v':complete"'
+    }
+}
+
+loc n_skipped_no_semantics : word count `skipped_no_semantics'
+loc n_partial_semantic : word count `partial_semantic_source'
+loc n_complete_semantic : word count `complete_semantic_source'
+
 if `"`eligible'"' == "" {
-    di as txt "no variables met the two-category coding rule"
+    di as txt "no variables met both coding and semantic-identifiability requirements"
     return local skipped `"`skipped'"'
     return local source ""
     return local numeric_source ""
@@ -334,12 +563,26 @@ if `"`eligible'"' == "" {
     return local recoded ""
     return local value_label ""
     return local status_variable ""
+    return local skipped_no_semantics `"`skipped_no_semantics'"'
+    return local partial_semantic_source `"`partial_semantic_source'"'
+    return local complete_semantic_source `"`complete_semantic_source'"'
+    return local semantic_sources `"`semantic_sources'"'
+    return local semantic_levels `"`semantic_levels'"'
+    return scalar n_skipped_no_semantics = `n_skipped_no_semantics'
+    return scalar n_partial_semantic = `n_partial_semantic'
+    return scalar n_complete_semantic = `n_complete_semantic'
     return scalar yesvalue = `yesvalue'
     return scalar verified = 0
     return scalar n_numeric_recoded = 0
     return scalar n_string_recoded = 0
     return scalar n_recoded = 0
     exit
+}
+
+if `n_skipped_no_semantics' > 0 {
+    foreach v of local skipped_no_semantics {
+        di as txt "`v' skipped: binary coding was identified, but no substantive category meaning was available."
+    }
 }
 
 loc statusvar "recode12_status"
@@ -591,6 +834,14 @@ foreach v of local eligible {
                     else {
                         loc target "Receives Benefits"
                     }
+                }
+            }
+
+            if `"`target'"' == "`yesvalue'" {
+                _recode12_name_semantics, source(`v')
+                if r(meaningful) {
+                    loc target : subinstr local v "_" " ", all
+                    loc target = strproper(`"`target'"')
                 }
             }
 
@@ -871,6 +1122,11 @@ if `"`display'"' != "" {
         }
     }
 
+    di as txt "semantic-identifiability summary: complete = " ///
+        as result `n_complete_semantic' ///
+        as txt "; partial (disabled by tightened V18) = " as result `n_partial_semantic' ///
+        as txt "; skipped for no semantics = " as result `n_skipped_no_semantics'
+
     di as txt "number of numeric variables standardized: " ///
         as result `n_numeric_recoded'
 
@@ -944,6 +1200,14 @@ return local recoded `"`recoded'"'
 return local requested_names `"`requested_names'"'
 return local generated_names `"`generated_names'"'
 return local shortened_sources `"`shortened_sources'"'
+return local skipped_no_semantics `"`skipped_no_semantics'"'
+return local partial_semantic_source `"`partial_semantic_source'"'
+return local complete_semantic_source `"`complete_semantic_source'"'
+return local semantic_sources `"`semantic_sources'"'
+return local semantic_levels `"`semantic_levels'"'
+return scalar n_skipped_no_semantics = `n_skipped_no_semantics'
+return scalar n_partial_semantic = `n_partial_semantic'
+return scalar n_complete_semantic = `n_complete_semantic'
 return scalar n_numeric_recoded = `n_numeric_recoded'
 return scalar n_string_recoded = `n_string_recoded'
 return scalar n_recoded = `n_recoded'
