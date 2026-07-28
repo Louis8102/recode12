@@ -1,4 +1,4 @@
-*! version 1.4.2-numlabel-permanent  28jul2026
+*! version 1.4.2-numstrlabel  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -971,6 +971,8 @@ foreach v of local eligible {
                     qui replace `sourcecode' = 1 if ///
                         `key' == `"`negative_key'"' & ///
                         !inlist(`normalized', "", ".")
+
+                    loc selected_value `"`affirmative_value'"'
                 }
                 else {
                     loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
@@ -983,11 +985,15 @@ foreach v of local eligible {
                     qui replace `sourcecode' = 2 if ///
                         `key' == `"`negative_key'"' & ///
                         !inlist(`normalized', "", ".")
+
+                    loc selected_value `"`negative_value'"'
                 }
 
-                loc target `"`matched_affirmative'"'
+                loc target `"`selected_value'"'
 
-                * Canonical display text for the category coded 1.
+                * Canonical affirmative display text applies only when
+                * the affirmative category is mapped to 1.
+                if `yesvalue' == 2 {
                 if `"`matched_affirmative'"' == "pass" {
                     loc target "Pass"
                 }
@@ -1026,25 +1032,26 @@ foreach v of local eligible {
                 else {
                     loc target `"`affirmative_value'"'
                 }
+                }
 
-                * Variable-specific canonical display labels.
-                * These affect labels only; the underlying mapping is unchanged.
-                if `"`v'"' == "final_exam_result" {
+                * Variable-specific affirmative label enhancements.
+                * These may not override a negative category selected by yesvalue(1).
+                if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
                     loc target "Passed Final Exam"
                 }
-                else if `"`v'"' == "performance_evaluation_result" {
+                else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
                     loc target "Passed Performance Evaluation"
                 }
-                else if `"`v'"' == "screening_result" {
+                else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
                     loc target "Passed Screening"
                 }
-                else if `"`v'"' == "enrollment" {
+                else if `yesvalue' == 2 & `"`v'"' == "enrollment" {
                     loc target "Enrolled"
                 }
-                else if `"`v'"' == "qualify_exam_result" {
+                else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
                     loc target "Passed Qualification Exam"
                 }
-                else if `"`v'"' == "professional_training_result" {
+                else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
                     loc target "Passed Professional Training"
                 }
 
@@ -1094,48 +1101,48 @@ foreach v of local eligible {
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
 
-        * Variable-specific semantic display labels.
-        * Mapping logic is unchanged; only the generated variable label is overridden.
-        if `"`v'"' == "final_exam_result" {
+        * Variable-specific affirmative semantic enhancements.
+        * These may not replace the actual source category selected by yesvalue(1).
+        if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
             loc target "Passed Final Exam"
         }
-        else if `"`v'"' == "dental_coverage" {
+        else if `yesvalue' == 2 & `"`v'"' == "dental_coverage" {
             loc target "Has Dental Insurance"
         }
-        else if `"`v'"' == "military_service_status" {
+        else if `yesvalue' == 2 & `"`v'"' == "military_service_status" {
             loc target "Has Served in the Military"
         }
-        else if `"`v'"' == "primary_care_access" {
+        else if `yesvalue' == 2 & `"`v'"' == "primary_care_access" {
             loc target "Has Access to Primary Care"
         }
-        else if `"`v'"' == "certificate_accreditation" {
+        else if `yesvalue' == 2 & `"`v'"' == "certificate_accreditation" {
             loc target "Certificate Has Been Accredited"
         }
-        else if `"`v'"' == "performance_evaluation_result" {
+        else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
             loc target "Passed Performance Evaluation"
         }
-        else if `"`v'"' == "screening_result" {
+        else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
             loc target "Passed Screening"
         }
-        else if `"`v'"' == "eligibility_for_medicaid" {
+        else if `yesvalue' == 2 & `"`v'"' == "eligibility_for_medicaid" {
             loc target "Eligible for Medicaid"
         }
-        else if `"`v'"' == "crash_course_enrollment" {
+        else if `yesvalue' == 2 & `"`v'"' == "crash_course_enrollment" {
             loc target "Enrolled in Crash Course Training"
         }
-        else if `"`v'"' == "qualify_exam_result" {
+        else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
             loc target "Passed Qualification Exam"
         }
-        else if `"`v'"' == "professional_training_result" {
+        else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
             loc target "Passed Professional Training"
         }
-        else if `"`v'"' == "Infected" {
+        else if `yesvalue' == 2 & `"`v'"' == "Infected" {
             loc target "Infected"
         }
-        else if `"`v'"' == "receives_public_assistance" {
+        else if `yesvalue' == 2 & `"`v'"' == "receives_public_assistance" {
             loc target "Receives Public Assistance"
         }
-        else if `"`v'"' == "road_test_result" {
+        else if `yesvalue' == 2 & `"`v'"' == "road_test_result" {
             loc target "Passed Road Test"
         }
 
