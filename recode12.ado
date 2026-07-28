@@ -1,4 +1,4 @@
-*! version 1.4.2-y1fix  28jul2026
+*! version 1.4.2-y1general  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -893,6 +893,9 @@ foreach v of local eligible {
                 loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
                 loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
 
+                * Stable directed-string source coding:
+                * negative category = source 1
+                * affirmative category = source 2
                 qui replace `sourcecode' = 1 if ///
                     `key' == `"`negative_key'"' & ///
                     !inlist(`normalized', "", ".")
@@ -908,8 +911,8 @@ foreach v of local eligible {
                     loc target `"`matched_affirmative'"'
                 }
 
-                * Canonical display text for the affirmative category.
-                * This block applies only when yesvalue(2) selects it.
+                * Canonical affirmative display text applies only when
+                * yesvalue(2) selects the affirmative source category.
                 if `yesvalue' == 2 {
                 if `"`matched_affirmative'"' == "pass" {
                     loc target "Pass"
@@ -951,31 +954,25 @@ foreach v of local eligible {
                 }
                 }
 
-                * Variable-specific canonical display labels.
-                * The label describes the source category selected by yesvalue().
-                if `"`v'"' == "final_exam_result" {
-                    if `yesvalue' == 1 loc target "Failed Final Exam"
-                    else loc target "Passed Final Exam"
+                * Variable-specific affirmative label enhancements.
+                * These may run only when yesvalue(2) selects the affirmative category.
+                if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
+                    loc target "Passed Final Exam"
                 }
-                else if `"`v'"' == "performance_evaluation_result" {
-                    if `yesvalue' == 1 loc target "Failed Performance Evaluation"
-                    else loc target "Passed Performance Evaluation"
+                else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
+                    loc target "Passed Performance Evaluation"
                 }
-                else if `"`v'"' == "screening_result" {
-                    if `yesvalue' == 1 loc target "Failed Screening"
-                    else loc target "Passed Screening"
+                else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
+                    loc target "Passed Screening"
                 }
-                else if `"`v'"' == "enrollment" {
-                    if `yesvalue' == 1 loc target "Not Enrolled"
-                    else loc target "Enrolled"
+                else if `yesvalue' == 2 & `"`v'"' == "enrollment" {
+                    loc target "Enrolled"
                 }
-                else if `"`v'"' == "qualify_exam_result" {
-                    if `yesvalue' == 1 loc target "Failed Qualification Exam"
-                    else loc target "Passed Qualification Exam"
+                else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
+                    loc target "Passed Qualification Exam"
                 }
-                else if `"`v'"' == "professional_training_result" {
-                    if `yesvalue' == 1 loc target "Failed Professional Training"
-                    else loc target "Passed Professional Training"
+                else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
+                    loc target "Passed Professional Training"
                 }
 
                 di as txt "`v': storage type = string; classification = directed string"
@@ -1024,63 +1021,49 @@ foreach v of local eligible {
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
 
-        * Variable-specific semantic display labels.
-        * The label describes the source category selected by yesvalue().
-        if `"`v'"' == "final_exam_result" {
-            if `yesvalue' == 1 loc target "Failed Final Exam"
-            else loc target "Passed Final Exam"
+        * Variable-specific affirmative semantic enhancements.
+        * These may never override the source category selected by yesvalue(1).
+        if `yesvalue' == 2 & `"`v'"' == "final_exam_result" {
+            loc target "Passed Final Exam"
         }
-        else if `"`v'"' == "dental_coverage" {
-            if `yesvalue' == 1 loc target "No Dental Insurance"
-            else loc target "Has Dental Insurance"
+        else if `yesvalue' == 2 & `"`v'"' == "dental_coverage" {
+            loc target "Has Dental Insurance"
         }
-        else if `"`v'"' == "military_service_status" {
-            if `yesvalue' == 1 loc target "Has Not Served in the Military"
-            else loc target "Has Served in the Military"
+        else if `yesvalue' == 2 & `"`v'"' == "military_service_status" {
+            loc target "Has Served in the Military"
         }
-        else if `"`v'"' == "primary_care_access" {
-            if `yesvalue' == 1 loc target "Has No Access to Primary Care"
-            else loc target "Has Access to Primary Care"
+        else if `yesvalue' == 2 & `"`v'"' == "primary_care_access" {
+            loc target "Has Access to Primary Care"
         }
-        else if `"`v'"' == "certificate_accreditation" {
-            if `yesvalue' == 1 loc target "Certificate Has Not Been Accredited"
-            else loc target "Certificate Has Been Accredited"
+        else if `yesvalue' == 2 & `"`v'"' == "certificate_accreditation" {
+            loc target "Certificate Has Been Accredited"
         }
-        else if `"`v'"' == "performance_evaluation_result" {
-            if `yesvalue' == 1 loc target "Failed Performance Evaluation"
-            else loc target "Passed Performance Evaluation"
+        else if `yesvalue' == 2 & `"`v'"' == "performance_evaluation_result" {
+            loc target "Passed Performance Evaluation"
         }
-        else if `"`v'"' == "screening_result" {
-            if `yesvalue' == 1 loc target "Failed Screening"
-            else loc target "Passed Screening"
+        else if `yesvalue' == 2 & `"`v'"' == "screening_result" {
+            loc target "Passed Screening"
         }
-        else if `"`v'"' == "eligibility_for_medicaid" {
-            if `yesvalue' == 1 loc target "Not Eligible for Medicaid"
-            else loc target "Eligible for Medicaid"
+        else if `yesvalue' == 2 & `"`v'"' == "eligibility_for_medicaid" {
+            loc target "Eligible for Medicaid"
         }
-        else if `"`v'"' == "crash_course_enrollment" {
-            if `yesvalue' == 1 loc target "Not Enrolled in Crash Course Training"
-            else loc target "Enrolled in Crash Course Training"
+        else if `yesvalue' == 2 & `"`v'"' == "crash_course_enrollment" {
+            loc target "Enrolled in Crash Course Training"
         }
-        else if `"`v'"' == "qualify_exam_result" {
-            if `yesvalue' == 1 loc target "Failed Qualification Exam"
-            else loc target "Passed Qualification Exam"
+        else if `yesvalue' == 2 & `"`v'"' == "qualify_exam_result" {
+            loc target "Passed Qualification Exam"
         }
-        else if `"`v'"' == "professional_training_result" {
-            if `yesvalue' == 1 loc target "Failed Professional Training"
-            else loc target "Passed Professional Training"
+        else if `yesvalue' == 2 & `"`v'"' == "professional_training_result" {
+            loc target "Passed Professional Training"
         }
-        else if `"`v'"' == "Infected" {
-            if `yesvalue' == 1 loc target "Not Infected"
-            else loc target "Infected"
+        else if `yesvalue' == 2 & `"`v'"' == "Infected" {
+            loc target "Infected"
         }
-        else if `"`v'"' == "receives_public_assistance" {
-            if `yesvalue' == 1 loc target "Does Not Receive Public Assistance"
-            else loc target "Receives Public Assistance"
+        else if `yesvalue' == 2 & `"`v'"' == "receives_public_assistance" {
+            loc target "Receives Public Assistance"
         }
-        else if `"`v'"' == "road_test_result" {
-            if `yesvalue' == 1 loc target "Failed Road Test"
-            else loc target "Passed Road Test"
+        else if `yesvalue' == 2 & `"`v'"' == "road_test_result" {
+            loc target "Passed Road Test"
         }
 
         loc target : subinstr local target `"' "'", all
