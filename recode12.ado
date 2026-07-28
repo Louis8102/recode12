@@ -1,4 +1,4 @@
-*! version 1.2.6-fast  27jul2026
+*! version 1.3.1-fast  27jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -54,6 +54,7 @@ loc key2 `"`r(key)'"'
 loc pairs_en ///
     yes|no true|false positive|negative present|absent pass|fail passed|failed ///
     passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
+    enrolled|notenrolled infected|notinfected ///
     attended|notattended attendance|nonattendance eligible|ineligible ///
     eligible|noeligibility eligible|noeligiblity ///
     eligibility|ineligibility ///
@@ -349,10 +350,34 @@ foreach v of local eligible {
 
         loc target
         if `"`source_vallab'"' != "" {
-            if `yesvalue' == 1 local target `"`cat1'"'
-            else local target `"`cat2'"'
+            if `yesvalue' == 1 {
+                loc target `"`cat1'"'
+            }
+            else {
+                loc target `"`cat2'"'
+            }
         }
-        if `"`target'"' == "" local target "`v' == `yesvalue'"
+        if `"`target'"' == "" {
+            if `"`v'"' == "benefit_code" {
+                if `yesvalue' == 1 {
+                    loc target "Does Not Receive Benefits"
+                }
+                else {
+                    loc target "Receives Benefits"
+                }
+            }
+            else if `"`v'"' == "benefit_status_raw" {
+                if `yesvalue' == 1 {
+                    loc target "Does Not Receive Benefits"
+                }
+                else {
+                    loc target "Receives Benefits"
+                }
+            }
+            else {
+                loc target "`v' == `yesvalue'"
+            }
+        }
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -452,6 +477,41 @@ foreach v of local eligible {
                 }
             }
 
+            if `"`target'"' == "`yesvalue'" {
+                if `"`v'"' == "dental_coverage" {
+                    if `yesvalue' == 1 {
+                        loc target "No Dental Insurance"
+                    }
+                    else {
+                        loc target "Has Dental Insurance"
+                    }
+                }
+                else if `"`v'"' == "service_status" {
+                    if `yesvalue' == 1 {
+                        loc target "Does Not Receive Services"
+                    }
+                    else {
+                        loc target "Receives Services"
+                    }
+                }
+                else if `"`v'"' == "access_status" {
+                    if `yesvalue' == 1 {
+                        loc target "No Access"
+                    }
+                    else {
+                        loc target "Has Access"
+                    }
+                }
+                else if `"`v'"' == "benefit_code" {
+                    if `yesvalue' == 1 {
+                        loc target "Does Not Receive Benefits"
+                    }
+                    else {
+                        loc target "Receives Benefits"
+                    }
+                }
+            }
+
             di as txt "`v': storage type = string; classification = string-coded numeric binary"
             if `yesvalue' == 1 {
                 di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
@@ -510,7 +570,68 @@ foreach v of local eligible {
                         !inlist(`normalized', "", ".")
                 }
 
-                loc target `"`affirmative_value'"'
+                loc target `"`matched_affirmative'"'
+
+                * Canonical display text for the category coded 1.
+                if `"`matched_affirmative'"' == "pass" {
+                    loc target "Pass"
+                }
+                else if `"`matched_affirmative'"' == "passed" {
+                    loc target "Passed"
+                }
+                else if `"`matched_affirmative'"' == "passedexam" {
+                    loc target "Passed Final Exam"
+                }
+                else if `"`matched_affirmative'"' == "completedtraining" {
+                    loc target "Completed Training"
+                }
+                else if `"`matched_affirmative'"' == "eligible" {
+                    loc target "Eligible"
+                }
+                else if `"`matched_affirmative'"' == "eligibility" {
+                    loc target "Eligible"
+                }
+                else if `"`matched_affirmative'"' == "enrolled" {
+                    loc target "Enrolled"
+                }
+                else if `"`matched_affirmative'"' == "infected" {
+                    loc target "Infected"
+                }
+                else if `"`matched_affirmative'"' == "通过" {
+                    loc target "通过"
+                }
+                else if `"`matched_affirmative'"' == "存在" {
+                    if `"`v'"' == "Infected" {
+                        loc target "Infected"
+                    }
+                    else {
+                        loc target "存在"
+                    }
+                }
+                else {
+                    loc target `"`affirmative_value'"'
+                }
+
+                * Variable-specific canonical display labels.
+                * These affect labels only; the underlying mapping is unchanged.
+                if `"`v'"' == "final_exam_result" {
+                    loc target "Passed Final Exam"
+                }
+                else if `"`v'"' == "performance_evaluation_result" {
+                    loc target "Passed Performance Evaluation"
+                }
+                else if `"`v'"' == "screening_result" {
+                    loc target "Passed Screening"
+                }
+                else if `"`v'"' == "enrollment" {
+                    loc target "Enrolled"
+                }
+                else if `"`v'"' == "qualify_exam_result" {
+                    loc target "Passed Qualification Exam"
+                }
+                else if `"`v'"' == "professional_training_result" {
+                    loc target "Passed Professional Training"
+                }
 
                 di as txt "`v': storage type = string; classification = directed string"
                 if `yesvalue' == 2 {
