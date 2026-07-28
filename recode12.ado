@@ -1,4 +1,4 @@
-*! version 1.4.2-y1label  28jul2026
+*! version 1.4.2-y1fix  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -893,9 +893,6 @@ foreach v of local eligible {
                 loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
                 loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
 
-                * Fixed directed-string source coding:
-                * negative category = source 1
-                * affirmative category = source 2
                 qui replace `sourcecode' = 1 if ///
                     `key' == `"`negative_key'"' & ///
                     !inlist(`normalized', "", ".")
@@ -911,8 +908,8 @@ foreach v of local eligible {
                     loc target `"`matched_affirmative'"'
                 }
 
-                * Canonical affirmative display text is used only when
-                * the affirmative source category is selected by yesvalue(2).
+                * Canonical display text for the affirmative category.
+                * This block applies only when yesvalue(2) selects it.
                 if `yesvalue' == 2 {
                 if `"`matched_affirmative'"' == "pass" {
                     loc target "Pass"
@@ -955,7 +952,7 @@ foreach v of local eligible {
                 }
 
                 * Variable-specific canonical display labels.
-                * The label always describes the source category selected by yesvalue().
+                * The label describes the source category selected by yesvalue().
                 if `"`v'"' == "final_exam_result" {
                     if `yesvalue' == 1 loc target "Failed Final Exam"
                     else loc target "Passed Final Exam"
@@ -1028,7 +1025,7 @@ foreach v of local eligible {
         qui assert r(N) == 0
 
         * Variable-specific semantic display labels.
-        * The label must describe the source category selected by yesvalue().
+        * The label describes the source category selected by yesvalue().
         if `"`v'"' == "final_exam_result" {
             if `yesvalue' == 1 loc target "Failed Final Exam"
             else loc target "Passed Final Exam"
