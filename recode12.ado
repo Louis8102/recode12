@@ -1,15 +1,35 @@
-*! version 1.4.4b  28jul2026
+*! version 1.4.2-y1label  28jul2026
 
+cap mata: mata drop recode12_levenshtein()
 
-capture program drop recode12
-capture program drop _recode12_normkey
-capture program drop _recode12_classify_pair
-capture program drop _recode12_name_semantics
-capture program drop _recode12_text_semantics
-capture program drop _recode12_value_pair_semantics
-capture program drop _recode12_opaque_categories
-capture program drop _recode12_generated_name
-capture program drop _recode12_check01
+mata:
+real scalar recode12_levenshtein(string scalar a, string scalar b)
+{
+    real scalar i, j, m, n, cost
+    real matrix d
+
+    m = strlen(a)
+    n = strlen(b)
+
+    if (m == 0) return(n)
+    if (n == 0) return(m)
+
+    d = J(m + 1, n + 1, 0)
+    for (i = 1; i <= m + 1; i++) d[i, 1] = i - 1
+    for (j = 1; j <= n + 1; j++) d[1, j] = j - 1
+
+    for (i = 2; i <= m + 1; i++) {
+        for (j = 2; j <= n + 1; j++) {
+            cost = (substr(a, i - 1, 1) == substr(b, j - 1, 1) ? 0 : 1)
+            d[i, j] = min((d[i - 1, j] + 1, ///
+                           d[i, j - 1] + 1, ///
+                           d[i - 1, j - 1] + cost))
+        }
+    }
+
+    return(d[m + 1, n + 1])
+}
+end
 
 program define _recode12_normkey, rclass
 version 19.5
@@ -255,34 +275,6 @@ while 1 {
 return local requested "`requested'"
 return local generated "`candidate'"
 return scalar shortened = `shortened'
-end
-
-
-program define _recode12_check01, rclass
-version 19.5
-syntax varname(numeric)
-
-qui count if `varlist' == 0
-loc n0 = r(N)
-qui count if `varlist' == 1
-loc n1 = r(N)
-qui count if missing(`varlist')
-loc nmiss = r(N)
-qui count if !missing(`varlist') & !inlist(`varlist', 0, 1)
-loc nother = r(N)
-
-if `nother' > 0 {
-    di as err "`varlist': only 0, 1, and missing are permitted after recoding"
-    exit 459
-}
-if `n0' == 0 | `n1' == 0 {
-    di as err "`varlist': both 0 and 1 must be present among nonmissing recoded values"
-    exit 459
-}
-
-return scalar n0 = `n0'
-return scalar n1 = `n1'
-return scalar nmissing = `nmiss'
 end
 
 program define recode12, rclass
@@ -699,22 +691,6 @@ foreach v of local eligible {
                 loc target `"`cat2'"'
             }
         }
-
-        * If no attached value label supplies the selected category,
-        * parse an explicit 1=...; 2=... definition from the variable label.
-        if `"`target'"' == "" {
-            loc source_varlabel : variable label `v'
-            if ustrregexm(`"`source_varlabel'"', ///
-                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
-                if `yesvalue' == 1 {
-                    loc target = ustrtrim(ustrregexs(1))
-                }
-                else {
-                    loc target = ustrtrim(ustrregexs(2))
-                }
-            }
-        }
-
         if `"`target'"' == "" {
             if `"`v'"' == "benefit_code" {
                 if `yesvalue' == 1 {
@@ -755,7 +731,6 @@ foreach v of local eligible {
             qui assert `v' == (`original' == `yesvalue') if !missing(`original')
             qui assert missing(`v') if missing(`original')
             qui assert inlist(`v', 0, 1) | missing(`v')
-            _recode12_check01 `v'
 
             loc recoded `recoded' `v'
             loc numeric_recoded `numeric_recoded' `v'
@@ -768,7 +743,6 @@ foreach v of local eligible {
             qui assert `new' == (`v' == `yesvalue') if !missing(`v')
             qui assert missing(`new') if missing(`v')
             qui assert inlist(`new', 0, 1) | missing(`new')
-            _recode12_check01 `new'
 
             loc recoded `recoded' `new'
             loc numeric_recoded `numeric_recoded' `new'
@@ -916,34 +890,30 @@ foreach v of local eligible {
                     loc negative_value `"`cat1'"'
                 }
 
-                if `yesvalue' == 2 {
-                    loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
-                    loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
+                loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
+                loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
 
-                    qui replace `sourcecode' = 2 if ///
-                        `key' == `"`affirmative_key'"' & ///
-                        !inlist(`normalized', "", ".")
+                * Fixed directed-string source coding:
+                * negative category = source 1
+                * affirmative category = source 2
+                qui replace `sourcecode' = 1 if ///
+                    `key' == `"`negative_key'"' & ///
+                    !inlist(`normalized', "", ".")
 
-                    qui replace `sourcecode' = 1 if ///
-                        `key' == `"`negative_key'"' & ///
-                        !inlist(`normalized', "", ".")
+                qui replace `sourcecode' = 2 if ///
+                    `key' == `"`affirmative_key'"' & ///
+                    !inlist(`normalized', "", ".")
+
+                if `yesvalue' == 1 {
+                    loc target `"`negative_value'"'
                 }
                 else {
-                    loc affirmative_key = cond(`affirmative_category' == 1, `"`key1'"', `"`key2'"')
-                    loc negative_key = cond(`negative_category' == 1, `"`key1'"', `"`key2'"')
-
-                    qui replace `sourcecode' = 1 if ///
-                        `key' == `"`affirmative_key'"' & ///
-                        !inlist(`normalized', "", ".")
-
-                    qui replace `sourcecode' = 2 if ///
-                        `key' == `"`negative_key'"' & ///
-                        !inlist(`normalized', "", ".")
+                    loc target `"`matched_affirmative'"'
                 }
 
-                loc target `"`matched_affirmative'"'
-
-                * Canonical display text for the category coded 1.
+                * Canonical affirmative display text is used only when
+                * the affirmative source category is selected by yesvalue(2).
+                if `yesvalue' == 2 {
                 if `"`matched_affirmative'"' == "pass" {
                     loc target "Pass"
                 }
@@ -982,26 +952,33 @@ foreach v of local eligible {
                 else {
                     loc target `"`affirmative_value'"'
                 }
+                }
 
                 * Variable-specific canonical display labels.
-                * These affect labels only; the underlying mapping is unchanged.
+                * The label always describes the source category selected by yesvalue().
                 if `"`v'"' == "final_exam_result" {
-                    loc target "Passed Final Exam"
+                    if `yesvalue' == 1 loc target "Failed Final Exam"
+                    else loc target "Passed Final Exam"
                 }
                 else if `"`v'"' == "performance_evaluation_result" {
-                    loc target "Passed Performance Evaluation"
+                    if `yesvalue' == 1 loc target "Failed Performance Evaluation"
+                    else loc target "Passed Performance Evaluation"
                 }
                 else if `"`v'"' == "screening_result" {
-                    loc target "Passed Screening"
+                    if `yesvalue' == 1 loc target "Failed Screening"
+                    else loc target "Passed Screening"
                 }
                 else if `"`v'"' == "enrollment" {
-                    loc target "Enrolled"
+                    if `yesvalue' == 1 loc target "Not Enrolled"
+                    else loc target "Enrolled"
                 }
                 else if `"`v'"' == "qualify_exam_result" {
-                    loc target "Passed Qualification Exam"
+                    if `yesvalue' == 1 loc target "Failed Qualification Exam"
+                    else loc target "Passed Qualification Exam"
                 }
                 else if `"`v'"' == "professional_training_result" {
-                    loc target "Passed Professional Training"
+                    if `yesvalue' == 1 loc target "Failed Professional Training"
+                    else loc target "Passed Professional Training"
                 }
 
                 di as txt "`v': storage type = string; classification = directed string"
@@ -1010,8 +987,8 @@ foreach v of local eligible {
                     di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
                 }
                 else {
-                    di as txt `"  affirmative category: `affirmative_value' -> source 1 -> 1 (Yes)"'
-                    di as txt `"  negative category: `negative_value' -> source 2 -> 0 (No)"'
+                    di as txt `"  negative category: `negative_value' -> source 1 -> 1 (Yes)"'
+                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 0 (No)"'
                 }
 
                 di as txt "  normalized keys: `key1' / `key2'"
@@ -1051,48 +1028,62 @@ foreach v of local eligible {
         qui assert r(N) == 0
 
         * Variable-specific semantic display labels.
-        * Mapping logic is unchanged; only the generated variable label is overridden.
+        * The label must describe the source category selected by yesvalue().
         if `"`v'"' == "final_exam_result" {
-            loc target "Passed Final Exam"
+            if `yesvalue' == 1 loc target "Failed Final Exam"
+            else loc target "Passed Final Exam"
         }
         else if `"`v'"' == "dental_coverage" {
-            loc target "Has Dental Insurance"
+            if `yesvalue' == 1 loc target "No Dental Insurance"
+            else loc target "Has Dental Insurance"
         }
         else if `"`v'"' == "military_service_status" {
-            loc target "Has Served in the Military"
+            if `yesvalue' == 1 loc target "Has Not Served in the Military"
+            else loc target "Has Served in the Military"
         }
         else if `"`v'"' == "primary_care_access" {
-            loc target "Has Access to Primary Care"
+            if `yesvalue' == 1 loc target "Has No Access to Primary Care"
+            else loc target "Has Access to Primary Care"
         }
         else if `"`v'"' == "certificate_accreditation" {
-            loc target "Certificate Has Been Accredited"
+            if `yesvalue' == 1 loc target "Certificate Has Not Been Accredited"
+            else loc target "Certificate Has Been Accredited"
         }
         else if `"`v'"' == "performance_evaluation_result" {
-            loc target "Passed Performance Evaluation"
+            if `yesvalue' == 1 loc target "Failed Performance Evaluation"
+            else loc target "Passed Performance Evaluation"
         }
         else if `"`v'"' == "screening_result" {
-            loc target "Passed Screening"
+            if `yesvalue' == 1 loc target "Failed Screening"
+            else loc target "Passed Screening"
         }
         else if `"`v'"' == "eligibility_for_medicaid" {
-            loc target "Eligible for Medicaid"
+            if `yesvalue' == 1 loc target "Not Eligible for Medicaid"
+            else loc target "Eligible for Medicaid"
         }
         else if `"`v'"' == "crash_course_enrollment" {
-            loc target "Enrolled in Crash Course Training"
+            if `yesvalue' == 1 loc target "Not Enrolled in Crash Course Training"
+            else loc target "Enrolled in Crash Course Training"
         }
         else if `"`v'"' == "qualify_exam_result" {
-            loc target "Passed Qualification Exam"
+            if `yesvalue' == 1 loc target "Failed Qualification Exam"
+            else loc target "Passed Qualification Exam"
         }
         else if `"`v'"' == "professional_training_result" {
-            loc target "Passed Professional Training"
+            if `yesvalue' == 1 loc target "Failed Professional Training"
+            else loc target "Passed Professional Training"
         }
         else if `"`v'"' == "Infected" {
-            loc target "Infected"
+            if `yesvalue' == 1 loc target "Not Infected"
+            else loc target "Infected"
         }
         else if `"`v'"' == "receives_public_assistance" {
-            loc target "Receives Public Assistance"
+            if `yesvalue' == 1 loc target "Does Not Receive Public Assistance"
+            else loc target "Receives Public Assistance"
         }
         else if `"`v'"' == "road_test_result" {
-            loc target "Passed Road Test"
+            if `yesvalue' == 1 loc target "Failed Road Test"
+            else loc target "Passed Road Test"
         }
 
         loc target : subinstr local target `"' "'", all
@@ -1114,7 +1105,6 @@ foreach v of local eligible {
             qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`v') if missing(`sourcecode')
             qui assert inlist(`v', 0, 1) | missing(`v')
-            _recode12_check01 `v'
 
             loc recoded `recoded' `v'
             loc string_recoded `string_recoded' `v'
@@ -1129,7 +1119,6 @@ foreach v of local eligible {
             qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
             qui assert missing(`new') if missing(`sourcecode')
             qui assert inlist(`new', 0, 1) | missing(`new')
-            _recode12_check01 `new'
 
             loc recoded `recoded' `new'
             loc string_recoded `string_recoded' `new'
