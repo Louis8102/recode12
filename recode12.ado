@@ -1,4 +1,4 @@
-*! version 1.4.2-directional-final  28jul2026
+*! version 1.4.2-permanent-directional  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -964,9 +964,10 @@ foreach v of local eligible {
                     loc negative_key `"`key1'"'
                 }
 
-                * Stable source-category coding. This is independent
-                * of yesvalue() and is therefore symmetric:
-                * negative = source 1; affirmative = source 2.
+                * Permanent directed-category rule:
+                * source 1 = negative category
+                * source 2 = affirmative category
+                * yesvalue() selects which source category becomes output 1.
                 qui replace `sourcecode' = 1 if ///
                     `key' == `"`negative_key'"' & ///
                     !inlist(`normalized', "", ".")
@@ -975,8 +976,6 @@ foreach v of local eligible {
                     `key' == `"`affirmative_key'"' & ///
                     !inlist(`normalized', "", ".")
 
-                * The initial target is always the original category
-                * that will actually be mapped to output value 1.
                 if `yesvalue' == 1 {
                     loc target `"`negative_value'"'
                 }
@@ -1030,10 +1029,10 @@ foreach v of local eligible {
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
 
-        * Final character-label synthesis.
-        * The label must describe the source category actually mapped to 1.
-        * Direction is determined only by yesvalue(); later code may not reverse it.
-        if `classification' == "directed string" {
+        * Final direction-aware character-label synthesis.
+        * It may improve grammar, but it may never reverse the source
+        * category selected by yesvalue().
+        if `"`classification'"' == "directed string" {
             if `yesvalue' == 1 {
                 if `"`v'"' == "final_exam_result" {
                     loc target "Failed Final Exam"
