@@ -1,4 +1,4 @@
-*! version 1.3.5  28jul2026
+*! version 1.3.4  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -437,22 +437,6 @@ foreach v of local eligible {
             }
         }
         if `"`target'"' == "" {
-            * If no value label is attached, parse coding information from
-            * the variable label, such as (1=White; 2=Non-White).
-            loc source_label : variable label `v'
-
-            if ustrregexm(`"`source_label'"', ///
-                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
-                if `yesvalue' == 1 {
-                    loc target = ustrtrim(ustrregexs(1))
-                }
-                else {
-                    loc target = ustrtrim(ustrregexs(2))
-                }
-            }
-        }
-
-        if `"`target'"' == "" {
             if `"`v'"' == "benefit_code" {
                 if `yesvalue' == 1 {
                     loc target "Does Not Receive Benefits"
@@ -470,10 +454,7 @@ foreach v of local eligible {
                 }
             }
             else {
-                * Final fallback: convert the variable name to readable
-                * title-style text rather than displaying == 1 or == 2.
-                loc target : subinstr local v "_" " ", all
-                loc target = strproper(`"`target'"')
+                loc target "`v' == `yesvalue'"
             }
         }
 
