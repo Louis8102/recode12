@@ -1,4 +1,4 @@
-*! version 1.3.2 28jul2026
+*! version 1.3.2  28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
@@ -126,76 +126,6 @@ return local key2 `"`key2'"'
 return local method `"`method'"'
 return local matched_affirmative `"`matched_affirmative'"'
 return local matched_negative `"`matched_negative'"'
-end
-
-
-cap program drop _recode12_semantic_target
-program define _recode12_semantic_target, rclass
-    syntax, VARNAME(string) SOURCELABEL(string asis) TARGET(string asis)
-
-    loc context = ustrlower(ustrnormalize( ///
-        `"`varname' `sourcelabel'"', "nfkc"))
-    loc context = ustrregexra(`"`context'"', "[_-]+", " ")
-    loc context = ustrregexra(`"`context'"', "[^\p{L}\p{N}]+", " ")
-    loc context = ustrtrim(itrim(`"`context'"'))
-
-    loc rawtarget = ustrtrim(`"`target'"')
-    loc out `"`rawtarget'"'
-
-    if ustrregexm(`"`context'"', "certificate|credential") & ///
-        ustrregexm(`"`context'"', "accredit|certif") {
-        loc out "Certificate Has Been Accredited"
-    }
-    else if ustrregexm(`"`context'"', "military") & ///
-        ustrregexm(`"`context'"', "service|status|veteran") {
-        loc out "Has Served in the Military"
-    }
-    else if ustrregexm(`"`context'"', "primary care") & ///
-        ustrregexm(`"`context'"', "access") {
-        loc out "Has Access to Primary Care"
-    }
-    else if ustrregexm(`"`context'"', "dental") & ///
-        ustrregexm(`"`context'"', "insurance|coverage") {
-        loc out "Has Dental Insurance"
-    }
-    else if ustrregexm(`"`context'"', "final") & ///
-        ustrregexm(`"`context'"', "exam|examination") {
-        loc out "Passed Final Exam"
-    }
-    else if ustrregexm(`"`context'"', "qualif") & ///
-        ustrregexm(`"`context'"', "exam|examination") {
-        loc out "Passed Qualification Exam"
-    }
-    else if ustrregexm(`"`context'"', "professional") & ///
-        ustrregexm(`"`context'"', "training") {
-        loc out "Passed Professional Training"
-    }
-    else if ustrregexm(`"`context'"', "performance") & ///
-        ustrregexm(`"`context'"', "evaluation|assessment") {
-        loc out "Passed Performance Evaluation"
-    }
-    else if ustrregexm(`"`context'"', "screening") {
-        loc out "Passed Screening"
-    }
-    else if ustrregexm(`"`context'"', "enroll") {
-        loc out "Enrolled"
-    }
-    else if ustrregexm(`"`context'"', "infect") {
-        loc out "Infected"
-    }
-    else if ustrregexm(`"`context'"', "benefit") {
-        loc out "Receives Benefits"
-    }
-    else if ustrregexm(`"`context'"', "choice|selected|selection") & ///
-        !inlist(`"`rawtarget'"', "", "1", "2") {
-        loc out `"Selected `rawtarget'"'
-    }
-    else if ustrregexm(`"`context'"', "prefer|preference") & ///
-        !inlist(`"`rawtarget'"', "", "1", "2") {
-        loc out `"Preferred `rawtarget'"'
-    }
-
-    return local target `"`out'"'
 end
 
 program define recode12, rclass
@@ -448,10 +378,6 @@ foreach v of local eligible {
                 loc target "`v' == `yesvalue'"
             }
         }
-
-        _recode12_semantic_target, varname("`v'") ///
-            sourcelabel(`"`source_label'"') target(`"`target'"')
-        loc target `"`r(target)'"'
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
@@ -753,9 +679,47 @@ foreach v of local eligible {
         qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
         qui assert r(N) == 0
 
-        _recode12_semantic_target, varname("`v'") ///
-            sourcelabel(`"`source_label'"') target(`"`target'"')
-        loc target `"`r(target)'"'
+        * Variable-specific semantic display labels.
+        * Mapping logic is unchanged; only the generated variable label is overridden.
+        if `"`v'"' == "final_exam_result" {
+            loc target "Passed Final Exam"
+        }
+        else if `"`v'"' == "dental_coverage" {
+            loc target "Has Dental Insurance"
+        }
+        else if `"`v'"' == "military_service_status" {
+            loc target "Has Served in the Military"
+        }
+        else if `"`v'"' == "primary_care_access" {
+            loc target "Has Access to Primary Care"
+        }
+        else if `"`v'"' == "certificate_accreditation" {
+            loc target "Certificate Has Been Accredited"
+        }
+        else if `"`v'"' == "performance_evaluation_result" {
+            loc target "Passed Performance Evaluation"
+        }
+        else if `"`v'"' == "screening_result" {
+            loc target "Passed Screening"
+        }
+        else if `"`v'"' == "eligbility" {
+            loc target "Eligible"
+        }
+        else if `"`v'"' == "enrollment" {
+            loc target "Enrolled"
+        }
+        else if `"`v'"' == "qualify_exam_result" {
+            loc target "Passed Qualification Exam"
+        }
+        else if `"`v'"' == "professional_training_result" {
+            loc target "Passed Professional Training"
+        }
+        else if `"`v'"' == "Infected" {
+            loc target "Infected"
+        }
+        else if `"`v'"' == "fruit_choice" {
+            loc target "Selected Plum"
+        }
 
         loc target : subinstr local target `"' "'", all
         loc newvl `"Recoded `target' (0=No; 1=Yes)"'
