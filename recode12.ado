@@ -1,4 +1,4 @@
-*! version 1.3.2-semantic  28jul2026
+*! version 1.3.2 28jul2026
 
 cap mata: mata drop recode12_levenshtein()
 
