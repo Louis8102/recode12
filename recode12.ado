@@ -81,18 +81,22 @@ program define recode12, rclass
     local plan_n = 0
     local permissive_n = 0
     local scan_string_vars
+    local scan_key_vars
     capture quietly ds `varlist', has(type string)
     if !_rc {
         local scan_string_vars `r(varlist)'
-        mata: _recode12_scan_strings(`"`scan_string_vars'"')
+        foreach scan_string of local scan_string_vars {
+            tempvar scan_key
+            local scan_key_vars `scan_key_vars' `scan_key'
+        }
+        mata: _recode12_scan_strings( ///
+            `"`scan_string_vars'"', `"`scan_key_vars'"')
     }
 
     /*
     Analysis creates an explicit plan.  No output variable is changed until
     every candidate has passed structural and semantic analysis.
     */
-    timer clear 91
-    timer on 91
     quietly foreach v of local varlist {
         if `"`v'"' == "recode12_status" {
             local skipped `skipped' `v'
@@ -187,6 +191,7 @@ program define recode12, rclass
                     }
                     else {
                         local structural = 1
+                        local keyvar : word `scan_index' of `scan_key_vars'
 
                         if `n_12' == `n_nonmissing' {
                             local source1 1
@@ -354,10 +359,6 @@ program define recode12, rclass
         local p_permissive`plan_n' = !`semantic'
         local p_keyvar`plan_n' `keyvar'
     }
-    timer off 91
-    quietly timer list 91
-    display as error "PROFILE_ANALYSIS_SECONDS=" r(t91)
-
     if `plan_n' == 0 {
         display as text "numeric variables successfully recoded: " as result 0
         display as text "string variables successfully recoded: " as result 0
@@ -407,8 +408,6 @@ program define recode12, rclass
     Preflight every generated name and the shared value label before any
     output data are written.
     */
-    timer clear 92
-    timer on 92
     local planned_names
     if `"`replace'"' == "" {
         forvalues i = 1/`plan_n' {
@@ -450,10 +449,6 @@ program define recode12, rclass
             exit 110
         }
     }
-    timer off 92
-    quietly timer list 92
-    display as error "PROFILE_PREFLIGHT_SECONDS=" r(t92)
-
     local recoded
     local numeric_recoded
     local string_recoded
@@ -461,8 +456,6 @@ program define recode12, rclass
     local numeric_source
     local string_source
 
-    timer clear 93
-    timer on 93
     forvalues i = 1/`plan_n' {
         local v `p_var`i''
         local kind `p_kind`i''
@@ -476,10 +469,6 @@ program define recode12, rclass
             quietly generate byte `sourcecode' = `v' if !missing(`v')
         }
         else {
-            tempvar keyvar
-            quietly generate strL `keyvar' = ///
-                ustrregexra(ustrlower(ustrtrim(ustrnormalize(`v', "nfkc"))), ///
-                    "[\p{Z}\s\p{P}\p{S}]+", "")
             quietly generate byte `sourcecode' = .
             quietly replace `sourcecode' = 1 if `keyvar' == `"`source1'"' & ///
                 !missing(`keyvar')
@@ -607,10 +596,6 @@ program define recode12, rclass
             local string_recoded `string_recoded' `output'
         }
     }
-    timer off 93
-    quietly timer list 93
-    display as error "PROFILE_MUTATION_VALIDATION_SECONDS=" r(t93)
-
     capture confirm variable `statusvar'
     if _rc quietly generate str9 `statusvar' = "confirmed"
     else quietly replace `statusvar' = "confirmed"
@@ -668,7 +653,8 @@ program define recode12, rclass
         }
 
         capture noisily {
-        putdocx begin, landscape font("Times New Roman", 8)
+        putdocx begin, landscape font("Times New Roman", 8) ///
+            margin(left, 0.5in) margin(right, 0.5in)
         putdocx paragraph, halign(center) spacing(after, 12pt)
         putdocx text ("recode12: Summary of Recoding to 0/1 Binary Variables"), ///
             bold font("Times New Roman", 12, "000000")
@@ -708,8 +694,7 @@ program define recode12, rclass
             }
             else {
                 local group_n = `permissive_n'
-                local group_title "Recoding Summary for Variables with Unclear Semantics"
-                local group_subtitle "under Permissive Mode"
+                local group_title "Recoding Summary for Variables with Unclear Semantics under Permissive Mode"
                 local report_table "recode12_permissive"
                 local ordered_kinds "numeric string"
                 local require_permissive = 1
@@ -718,6 +703,7 @@ program define recode12, rclass
                 local type_column = 2
                 local mapping_column = 3
                 local result_column = 4
+                local group_subtitle ""
             }
             if `group_n' == 0 & !`permissive_on' continue
 
@@ -725,42 +711,28 @@ program define recode12, rclass
             if `report_table_number' > 1 {
                 putdocx pagebreak
             }
-            putdocx paragraph, spacing(before, 10pt) spacing(after, 4pt)
-            if `"`group_subtitle'"' == "" {
-                putdocx text ("Table `report_table_number'. `group_title'"), ///
-                    font("Times New Roman", 10, "000000")
-            }
-            else {
-                putdocx text ("Table `report_table_number'. `group_title'"), ///
-                    font("Times New Roman", 10, "000000") linebreak
-                putdocx text (`"`group_subtitle'"'), ///
-                    font("Times New Roman", 10, "000000")
-            }
+            putdocx paragraph, spacing(before, 10pt) spacing(after, 0pt)
+            putdocx text ("Table `report_table_number'. `group_title'"), ///
+                font("Times New Roman", 10, "000000")
 
             local group_rows = `group_n' + 1
-            putdocx table `report_table' = (`group_rows', `table_columns'), ///
-                width(9in) layout(fixed) headerrow(1)
+            local note_row = `group_rows' + 1
+            putdocx table `report_table' = (`note_row', `table_columns'), ///
+                width(10in) layout(fixed) headerrow(1) border(all, nil) ///
+                cellmargin(left, 0.04in) cellmargin(right, 0.04in) ///
+                cellmargin(top, 0.02in) cellmargin(bottom, 0.02in)
             putdocx table `report_table'(1,`source_column') = ///
                 ("Variable")
             if `type_column' > 0 {
                 putdocx table `report_table'(1,`type_column') = ("Type")
             }
             putdocx table `report_table'(1,`mapping_column') = ///
-                ("Mapping process")
+                ("Mapping Process")
             putdocx table `report_table'(1,`result_column') = ("Result")
-            putdocx table `report_table'(1,.), shading(D9D9D9)
-            if `type_column' == 0 {
-                putdocx table `report_table'(.,1), width(1.7in)
-                putdocx table `report_table'(.,2), width(3.2in)
-                putdocx table `report_table'(.,3), width(4.1in)
-            }
-            else {
-                putdocx table `report_table'(.,1), width(1.4in)
-                putdocx table `report_table'(.,2), width(0.7in)
-                putdocx table `report_table'(.,3), width(2.8in)
-                putdocx table `report_table'(.,4), width(4.1in)
-            }
             local group_row = 1
+            local max_source_chars = 0
+            local max_mapping_chars = 0
+            local max_result_chars = 0
             foreach ordered_kind of local ordered_kinds {
                 forvalues i = 1/`plan_n' {
                     if `"`p_kind`i''"' != `"`ordered_kind'"' continue
@@ -776,15 +748,31 @@ program define recode12, rclass
                     local report_label `"`p_label`yesvalue'`i''"'
                     if `yesvalue' == 1 {
                         local report_mapping1 ///
-                            `"`report_display1' -> 1 (Yes)"'
+                            `"`report_display1' -> 1"'
                         local report_mapping2 ///
-                            `"`report_display2' -> 0 (No)"'
+                            `"`report_display2' -> 0"'
                     }
                     else {
                         local report_mapping1 ///
-                            `"`report_display1' -> 0 (No)"'
+                            `"`report_display1' -> 0"'
                         local report_mapping2 ///
-                            `"`report_display2' -> 1 (Yes)"'
+                            `"`report_display2' -> 1"'
+                    }
+                    local report_mapping ///
+                        `"`report_mapping1'; `report_mapping2'"'
+                    local report_result ///
+                        `"`report_output' | `report_label'"'
+                    local report_source_chars = ustrlen(`"`report_source'"')
+                    local report_mapping_chars = ustrlen(`"`report_mapping'"')
+                    local report_result_chars = ustrlen(`"`report_result'"')
+                    if `report_source_chars' > `max_source_chars' {
+                        local max_source_chars = `report_source_chars'
+                    }
+                    if `report_mapping_chars' > `max_mapping_chars' {
+                        local max_mapping_chars = `report_mapping_chars'
+                    }
+                    if `report_result_chars' > `max_result_chars' {
+                        local max_result_chars = `report_result_chars'
                     }
 
                     putdocx table `report_table'(`group_row',`source_column') = ///
@@ -794,44 +782,82 @@ program define recode12, rclass
                             (`"`report_kind'"')
                     }
                     putdocx table `report_table'(`group_row',`mapping_column') = ///
-                        (`"`report_mapping1'"'), linebreak
-                    putdocx table `report_table'(`group_row',`mapping_column') = ///
-                        (`"`report_mapping2'"'), append
+                        (`"`report_mapping'"')
                     putdocx table `report_table'(`group_row',`result_column') = ///
-                        (`"Output variable: `report_output'"'), linebreak
-                    putdocx table `report_table'(`group_row',`result_column') = ///
-                        (`"Variable label: `report_label'"'), append
+                        (`"`report_result'"')
                 }
             }
+            local source_width = max(0.8, ///
+                0.052 * `max_source_chars' + 0.12)
+            local type_width = cond(`type_column' > 0, 0.65, 0)
+            local content_width = 10 - `source_width' - `type_width'
+            local mapping_need = max(1.5, ///
+                0.052 * `max_mapping_chars' + 0.12)
+            local result_need = max(2, ///
+                0.052 * `max_result_chars' + 0.12)
+            local combined_need = `mapping_need' + `result_need'
+            if `combined_need' <= `content_width' {
+                local spare_width = `content_width' - `combined_need'
+                local mapping_width = `mapping_need' + 0.4 * `spare_width'
+                local result_width = `result_need' + 0.6 * `spare_width'
+            }
+            else {
+                local mapping_width = ///
+                    `content_width' * `mapping_need' / `combined_need'
+                local result_width = `content_width' - `mapping_width'
+            }
+            putdocx table `report_table'(.,`source_column'), ///
+                width(`source_width'in)
+            if `type_column' > 0 {
+                putdocx table `report_table'(.,`type_column'), ///
+                    width(`type_width'in)
+            }
+            putdocx table `report_table'(.,`mapping_column'), ///
+                width(`mapping_width'in)
+            putdocx table `report_table'(.,`result_column'), ///
+                width(`result_width'in)
             putdocx table `report_table'(.,.), ///
                 valign(center) font("Times New Roman", 8, "000000")
             putdocx table `report_table'(1,.), ///
                 font("Times New Roman", 10, "000000")
             putdocx table `report_table'(.,.), halign(left)
-            forvalues report_row = 1/`group_rows' {
+            putdocx table `report_table'(1,.), ///
+                border(top, single, "000000", 1.5pt) ///
+                border(bottom, single, "000000", 0.5pt)
+            forvalues report_row = 1/`note_row' {
                 putdocx table `report_table'(`report_row',.), nosplit
             }
 
             local note_variable = cond(`group_n' == 1, ///
                 "variable", "variables")
             local note_verb = cond(`group_n' == 1, "was", "were")
-            putdocx paragraph, spacing(before, 0pt) spacing(after, 6pt)
-            putdocx text ("Note. "), ///
-                italic font("Times New Roman", 8, "000000")
             if `"`report_section'"' == "regular_numeric" {
-                putdocx text ///
-                    ("`group_n' eligible numeric `note_variable' `note_verb' recoded using yesvalue(`yesvalue')."), ///
-                    font("Times New Roman", 8, "000000")
+                local report_note ///
+                    "`group_n' eligible numeric `note_variable' `note_verb' recoded using yesvalue(`yesvalue'). By default, generated recoded variable names use the suffix _01."
             }
             else if `"`report_section'"' == "regular_string" {
-                putdocx text ///
-                    ("`group_n' eligible string `note_variable' `note_verb' recoded using yesvalue(`yesvalue')."), ///
-                    font("Times New Roman", 8, "000000")
+                local report_note ///
+                    "`group_n' eligible string `note_variable' `note_verb' recoded using yesvalue(`yesvalue'). By default, generated recoded variable names use the suffix _01."
             }
             else {
-                putdocx text ///
-                    ("`group_n' `note_variable' with incomplete semantic information (`permissive_numeric_n' numeric and `permissive_string_n' string) `note_verb' recoded under permissive mode using yesvalue(`yesvalue')."), ///
-                    font("Times New Roman", 8, "000000")
+                local report_note ///
+                    "`group_n' `note_variable' with incomplete semantic information (`permissive_numeric_n' numeric and `permissive_string_n' string) `note_verb' recoded under permissive mode using yesvalue(`yesvalue'). By default, generated recoded variable names use the suffix _01."
+            }
+            putdocx table `report_table'(`note_row',1) = ("Note. "), ///
+                italic font("Times New Roman", 8, "000000") ///
+                colspan(`table_columns')
+            putdocx table `report_table'(`note_row',1) = ///
+                (`"`report_note'"'), append ///
+                font("Times New Roman", 8, "000000")
+            putdocx table `report_table'(`note_row',1), ///
+                valign(top) halign(left) border(all, nil)
+            if `group_n' > 0 {
+                putdocx table `report_table'(`group_rows',.), ///
+                    border(bottom, single, "000000", 1.5pt)
+            }
+            else {
+                putdocx table `report_table'(1,.), ///
+                    border(bottom, single, "000000", 1.5pt)
             }
         }
 
@@ -1288,22 +1314,26 @@ end
 capture mata: mata drop _recode12_scan_string()
 capture mata: mata drop _recode12_scan_strings()
 mata:
-void _recode12_scan_strings(string scalar varlist)
+void _recode12_scan_strings(
+    string scalar varlist,
+    string scalar keyvarlist)
 {
     string rowvector varnames
+    string rowvector keyvarnames
     string matrix raw
-    string matrix display
-    string matrix lower
-    string matrix protected_key
-    string matrix matching
+    string colvector raw_col
+    string colvector raw_levels
+    string colvector display_levels
+    string colvector lower_levels
+    string colvector protected_levels
+    string colvector matching_levels
+    string colvector key_full
     string colvector nonmissing_keys
-    string colvector display_col
-    string colvector matching_col
-    real colvector missing_col
-    real colvector missingflag
+    real colvector missing_levels
     real colvector indices
     real colvector second_indices
     real colvector numericflag
+    real colvector level_indices
     real scalar n_reserved
     real scalar n_nonmissing
     real scalar n_keys
@@ -1317,13 +1347,21 @@ void _recode12_scan_strings(string scalar varlist)
     real scalar batch_end
     real scalar batch_column
     real scalar global_column
+    real scalar level_index
+    real scalar first_level
+    real scalar second_level
     real scalar n_variables
     real scalar batch_width
     string scalar suffix
 
     varnames = tokens(varlist)
+    keyvarnames = tokens(keyvarlist)
     n_variables = cols(varnames)
     if (n_variables == 0) return
+    if (cols(keyvarnames) != n_variables) {
+        errprintf("internal string-key allocation mismatch\n")
+        exit(498)
+    }
     if (st_nobs() == 0) batch_width = n_variables
     else {
         batch_width = min((n_variables, ///
@@ -1334,23 +1372,26 @@ void _recode12_scan_strings(string scalar varlist)
         batch_start = batch_start + batch_width) {
         batch_end = min((batch_start + batch_width - 1, n_variables))
         raw = st_sdata(., varnames[1, batch_start..batch_end])
-        display = ustrtrim(ustrnormalize(raw, "nfkc"))
-        lower = ustrlower(display)
-        protected_key = ustrregexra(lower, "[\p{Z}\s]+", "")
-        matching = ustrregexra(lower, "[\p{Z}\s\p{P}\p{S}]+", "")
-        missingflag = (display :== "") :| (protected_key :== ".")
 
         for (batch_column = 1; batch_column <= cols(raw); batch_column++) {
             global_column = batch_start + batch_column - 1
             suffix = strofreal(global_column)
-            display_col = display[, batch_column]
-            matching_col = matching[, batch_column]
-            missing_col = missingflag[, batch_column]
-            n_reserved = sum(ustrregexm(protected_key[, batch_column], ///
+            raw_col = raw[, batch_column]
+            raw_levels = uniqrows(sort(raw_col, 1))
+            display_levels = ustrtrim(ustrnormalize(raw_levels, "nfkc"))
+            lower_levels = ustrlower(display_levels)
+            protected_levels = ustrregexra(lower_levels, ///
+                "[\p{Z}\s]+", "")
+            matching_levels = ustrregexra(lower_levels, ///
+                "[\p{Z}\s\p{P}\p{S}]+", "")
+            missing_levels = (display_levels :== "") :| ///
+                (protected_levels :== ".")
+            n_reserved = sum(ustrregexm(protected_levels, ///
                 "^\.[a-z]$"))
-            nonmissing_keys = select(matching_col, missing_col :== 0)
-            n_nonmissing = rows(nonmissing_keys)
+            nonmissing_keys = select(matching_levels, ///
+                missing_levels :== 0)
             n_keys = 0
+            n_nonmissing = 0
             n_12 = 0
             invalid_numeric_string = 0
             first_key = ""
@@ -1358,23 +1399,46 @@ void _recode12_scan_strings(string scalar varlist)
             first_display = ""
             second_display = ""
 
-            if (n_nonmissing > 0) {
+            if (rows(nonmissing_keys) > 0) {
                 n_keys = rows(uniqrows(sort(nonmissing_keys, 1)))
-                n_12 = sum((nonmissing_keys :== "1") :| ///
-                    (nonmissing_keys :== "2"))
                 numericflag = ustrregexm(nonmissing_keys, ///
                     "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$")
                 invalid_numeric_string = ///
                     sum(numericflag :& (nonmissing_keys :!= "1") :& ///
                         (nonmissing_keys :!= "2")) > 0
-                indices = selectindex(missing_col :== 0)
-                first_key = matching_col[indices[1]]
-                first_display = display_col[indices[1]]
-                second_indices = selectindex((missing_col :== 0) :& ///
-                    (matching_col :!= first_key))
-                if (rows(second_indices) > 0) {
-                    second_key = matching_col[second_indices[1]]
-                    second_display = display_col[second_indices[1]]
+                if (n_keys == 2 & n_reserved == 0) {
+                    key_full = J(rows(raw_col), 1, "")
+                    for (level_index = 1; ///
+                        level_index <= rows(raw_levels); ///
+                        level_index++) {
+                        if (missing_levels[level_index]) continue
+                        level_indices = selectindex(raw_col :== ///
+                            raw_levels[level_index])
+                        key_full[level_indices, 1] = ///
+                            J(rows(level_indices), 1, ///
+                                matching_levels[level_index])
+                    }
+                    indices = selectindex(key_full :!= "")
+                    n_nonmissing = rows(indices)
+                    n_12 = sum((key_full :== "1") :| ///
+                        (key_full :== "2"))
+                    first_key = key_full[indices[1]]
+                    level_indices = selectindex(raw_levels :== ///
+                        raw_col[indices[1]])
+                    first_level = level_indices[1]
+                    first_display = display_levels[first_level]
+                    second_indices = selectindex((key_full :!= "") :& ///
+                        (key_full :!= first_key))
+                    if (rows(second_indices) > 0) {
+                        second_key = key_full[second_indices[1]]
+                        level_indices = selectindex(raw_levels :== ///
+                            raw_col[second_indices[1]])
+                        second_level = level_indices[1]
+                        second_display = display_levels[second_level]
+                    }
+                    (void) st_addvar("strL", ///
+                        keyvarnames[global_column])
+                    st_sstore(., keyvarnames[global_column], key_full)
                 }
             }
 
