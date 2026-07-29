@@ -1,1304 +1,1397 @@
-*! version 1.4.2-permanent-directional  28jul2026
+*! version 1.1.2  29jul2026
 
-cap mata: mata drop recode12_levenshtein()
-
+capture mata: mata drop _recode12_vl_exact()
 mata:
-real scalar recode12_levenshtein(string scalar a, string scalar b)
+void _recode12_vl_exact(string scalar name)
 {
-    real scalar i, j, m, n, cost
-    real matrix d
+    real colvector values
+    string colvector text
+    real scalar ok
 
-    m = strlen(a)
-    n = strlen(b)
-
-    if (m == 0) return(n)
-    if (n == 0) return(m)
-
-    d = J(m + 1, n + 1, 0)
-    for (i = 1; i <= m + 1; i++) d[i, 1] = i - 1
-    for (j = 1; j <= n + 1; j++) d[1, j] = j - 1
-
-    for (i = 2; i <= m + 1; i++) {
-        for (j = 2; j <= n + 1; j++) {
-            cost = (substr(a, i - 1, 1) == substr(b, j - 1, 1) ? 0 : 1)
-            d[i, j] = min((d[i - 1, j] + 1, ///
-                           d[i, j - 1] + 1, ///
-                           d[i - 1, j - 1] + cost))
-        }
+    pragma unset values
+    pragma unset text
+    st_vlload(name, values, text)
+    ok = rows(values) == 2
+    if (ok) {
+        ok = values[1] == 0 & values[2] == 1
+        ok = ok & text[1] == "No" & text[2] == "Yes"
     }
-
-    return(d[m + 1, n + 1])
+    st_local("vl_exact", strofreal(ok))
 }
-end
-
-program define _recode12_normkey, rclass
-version 19.5
-syntax , TEXT(string asis)
-
-loc key = ustrlower(ustrnormalize(ustrtrim(`"`text'"'), "nfkc"))
-loc key = ustrregexra(`"`key'"', "[^\p{L}\p{N}]+", "")
-
-return local key `"`key'"'
-end
-
-program define _recode12_classify_pair, rclass
-version 19.5
-syntax , CAT1(string asis) CAT2(string asis)
-
-_recode12_normkey, text(`"`cat1'"')
-loc key1 `"`r(key)'"'
-
-_recode12_normkey, text(`"`cat2'"')
-loc key2 `"`r(key)'"'
-
-loc pairs_en ///
-    yes|no true|false positive|negative present|absent pass|fail passed|failed ///
-    passedexam|didnotpassexam completedtraining|didnotcompletetraining ///
-    enrolled|notenrolled infected|notinfected ///
-    attended|notattended attendance|nonattendance eligible|ineligible ///
-    eligible|noeligibility eligible|noeligiblity ///
-    eligibility|ineligibility ///
-    approved|denied accepted|rejected complete|incomplete completed|incomplete ///
-    employed|unemployed active|inactive crime|nocrime criminal|noncriminal
-
-loc pairs_zh ///
-    是|否 有|无 存在|不存在 发生|未发生 已发生|未发生 ///
-    通过|不通过 通过|未通过 合格|不合格 及格|不及格 达标|未达标 ///
-    出勤|缺勤 出勤|未出勤 参加|未参加 参与|未参与 到场|未到场 ///
-    完成|未完成 成功|失败 成功|未成功 符合|不符合 符合|未符合 ///
-    满足|不满足 获得|未获得 拥有|未拥有 持有|未持有 ///
-    就业|未就业 已就业|未就业 在职|失业 工作|未工作 ///
-    阳性|阴性 感染|未感染 患病|未患病 确诊|未确诊 ///
-    治疗|未治疗 接种|未接种 住院|未住院 使用|未使用 暴露|未暴露 ///
-    检出|未检出 犯罪|不犯罪 犯罪|无犯罪 违规|未违规 违法|未违法 ///
-    复发|未复发 批准|拒绝 同意|不同意 接受|不接受 支持|不支持
-
-loc pairs `pairs_en' `pairs_zh'
-
-loc classified = 0
-loc affirmative_category = .
-loc negative_category = .
-loc method ""
-loc matched_affirmative ""
-loc matched_negative ""
-loc distance1 = .
-loc distance2 = .
-
-foreach pair of local pairs {
-    loc split = strpos(`"`pair'"', "|")
-    loc affirmative = substr(`"`pair'"', 1, `split' - 1)
-    loc negative = substr(`"`pair'"', `split' + 1, .)
-
-    if `"`key1'"' == `"`affirmative'"' & `"`key2'"' == `"`negative'"' {
-        loc classified = 1
-        loc affirmative_category = 1
-        loc negative_category = 2
-        loc method "normalized exact match"
-        loc matched_affirmative `"`affirmative'"'
-        loc matched_negative `"`negative'"'
-        loc distance1 = 0
-        loc distance2 = 0
-        continue, break
-    }
-
-    if `"`key1'"' == `"`negative'"' & `"`key2'"' == `"`affirmative'"' {
-        loc classified = 1
-        loc affirmative_category = 2
-        loc negative_category = 1
-        loc method "normalized exact match"
-        loc matched_affirmative `"`affirmative'"'
-        loc matched_negative `"`negative'"'
-        loc distance1 = 0
-        loc distance2 = 0
-        continue, break
-    }
-}
-
-
-
-return scalar classified = `classified'
-return scalar affirmative_category = `affirmative_category'
-return scalar negative_category = `negative_category'
-return scalar distance1 = `distance1'
-return scalar distance2 = `distance2'
-return local key1 `"`key1'"'
-return local key2 `"`key2'"'
-return local method `"`method'"'
-return local matched_affirmative `"`matched_affirmative'"'
-return local matched_negative `"`matched_negative'"'
-end
-
-
-program define _recode12_name_semantics, rclass
-version 19.5
-syntax , SOURCE(name)
-
-loc source_key = ustrlower(ustrnormalize(ustrtrim("`source'"), "nfkc"))
-loc source_key = ustrregexra("`source_key'", "[^\p{L}\p{N}]+", "")
-
-loc generic = 0
-if ustrregexm("`source_key'", ///
-    "^(v|var|x|item|column|col|q|field|note|notes|code)[0-9]*$") {
-    loc generic = 1
-}
-
-return scalar generic = `generic'
-return scalar meaningful = !`generic'
-return local key "`source_key'"
-end
-
-program define _recode12_text_semantics, rclass
-version 19.5
-syntax , TEXT(string asis)
-
-loc key = ustrlower(ustrnormalize(ustrtrim(`"`text'"'), "nfkc"))
-loc key = ustrregexra(`"`key'"', "[^\p{L}\p{N}]+", "")
-
-loc generic = 0
-if `"`key'"' == "" {
-    loc generic = 1
-}
-else if ustrregexm(`"`key'"', ///
-    "^(status|response|responsecategory|classification|classificationcode|group|level|note|notes|field|administrativefield|category|categories|type|code|option|answer|result|variable|item|measure|indicator|unknown|unspecified)$") {
-    loc generic = 1
-}
-
-return scalar generic = `generic'
-return scalar meaningful = !`generic'
-return local key `"`key'"'
-end
-
-program define _recode12_value_pair_semantics, rclass
-version 19.5
-syntax , LABEL1(string asis) LABEL2(string asis)
-
-_recode12_text_semantics, text(`"`label1'"')
-loc key1 `"`r(key)'"'
-loc meaningful1 = r(meaningful)
-
-_recode12_text_semantics, text(`"`label2'"')
-loc key2 `"`r(key)'"'
-loc meaningful2 = r(meaningful)
-
-loc opaque = 0
-if inlist(`"`key1'"', "1", "2") & inlist(`"`key2'"', "1", "2") {
-    loc opaque = 1
-}
-else if ustrregexm(`"`key1'"', "^(type|code|category|group|class|level|option)[12abxy]$") & ///
-        ustrregexm(`"`key2'"', "^(type|code|category|group|class|level|option)[12abxy]$") {
-    loc opaque = 1
-}
-else if ustrregexm(`"`key1'"', "^[abxy]$") & ustrregexm(`"`key2'"', "^[abxy]$") {
-    loc opaque = 1
-}
-
-return scalar meaningful = (`meaningful1' & `meaningful2' & !`opaque')
-return scalar opaque = `opaque'
-return local key1 `"`key1'"'
-return local key2 `"`key2'"'
-end
-
-program define _recode12_opaque_categories, rclass
-version 19.5
-syntax , KEY1(string asis) KEY2(string asis)
-
-loc opaque = 0
-
-if inlist("`key1'", "1", "2") & inlist("`key2'", "1", "2") {
-    loc opaque = 1
-}
-else if ustrregexm("`key1'", "^[abxy]$") & ///
-        ustrregexm("`key2'", "^[abxy]$") {
-    loc opaque = 1
-}
-else if ustrregexm("`key1'", "^(category|group|class|level|option)[12abxy]$") & ///
-        ustrregexm("`key2'", "^(category|group|class|level|option)[12abxy]$") {
-    loc opaque = 1
-}
-
-return scalar opaque = `opaque'
-end
-
-program define _recode12_generated_name, rclass
-version 19.5
-syntax , SOURCE(name) SUFfix(name) [REServed(string asis)]
-
-loc requested "`source'`suffix'"
-loc candidate "`requested'"
-loc shortened = 0
-
-if strlen("`candidate'") > 32 {
-    loc shortened = 1
-    loc base "`source'"
-
-    * Deterministic semantic abbreviations; order is deliberate.
-    loc base : subinstr local base "professional" "prof", all
-    loc base : subinstr local base "qualification" "qual", all
-    loc base : subinstr local base "certificate" "cert", all
-    loc base : subinstr local base "accreditation" "accred", all
-    loc base : subinstr local base "performance" "perf", all
-    loc base : subinstr local base "evaluation" "eval", all
-    loc base : subinstr local base "eligibility" "elig", all
-    loc base : subinstr local base "enrollment" "enroll", all
-    loc base : subinstr local base "training" "train", all
-    loc base : subinstr local base "assistance" "assist", all
-    loc base : subinstr local base "military" "mil", all
-    loc base : subinstr local base "service" "svc", all
-    loc base : subinstr local base "primary" "prim", all
-    loc base : subinstr local base "course" "crs", all
-    loc base : subinstr local base "result" "rslt", all
-
-    loc maxbase = 32 - strlen("`suffix'")
-    loc base = substr("`base'", 1, `maxbase')
-    while substr("`base'", -1, 1) == "_" {
-        loc base = substr("`base'", 1, strlen("`base'") - 1)
-    }
-    loc candidate "`base'`suffix'"
-}
-
-loc stem "`candidate'"
-loc attempt = 1
-
-while 1 {
-    cap confirm new variable `candidate'
-    loc exists = (_rc == 110)
-    loc reserved_hit : list candidate in reserved
-
-    if !`exists' & !`reserved_hit' continue, break
-
-    loc ++attempt
-    loc tag "_`attempt'"
-    loc maxstem = 32 - strlen("`tag'")
-    loc candidate = substr("`stem'", 1, `maxstem') + "`tag'"
-}
-
-return local requested "`requested'"
-return local generated "`candidate'"
-return scalar shortened = `shortened'
 end
 
 program define recode12, rclass
-version 19.5
-syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) REPlace DISPlay PERMissive]
+    version 19.5
+    syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) ///
+        REPlace DISPlay PERMissive]
 
-if `"`yesvalue'"' == "" {
-    di as err "yesvalue() is required; specify yesvalue(1) or yesvalue(2)"
-    exit 198
-}
-if !inlist(`"`yesvalue'"', "1", "2") {
-    di as err "yesvalue() must be 1 or 2"
-    exit 198
-}
+    if `"`yesvalue'"' == "" {
+        display as error "yesvalue() is required; specify yesvalue(1) or yesvalue(2)"
+        exit 198
+    }
+    if !inlist(`"`yesvalue'"', "1", "2") {
+        display as error "yesvalue() must be 1 or 2"
+        exit 198
+    }
 
-loc suffix_given = (`"`suffix'"' != "")
-if `"`replace'"' != "" & `suffix_given' {
-    di as err "suffix() may not be combined with replace"
-    exit 198
-}
-if `"`suffix'"' == "" local suffix "_01"
+    local permissive_on = (`"`permissive'"' != "")
+    local suffix_given = (`"`suffix'"' != "")
+    if `"`replace'"' != "" & `suffix_given' {
+        display as error "suffix() may not be combined with replace"
+        exit 198
+    }
+    if `"`suffix'"' == "" local suffix "_01"
 
-if `"`varlist'"' == "" {
-    qui ds
-    loc varlist `r(varlist)'
-}
-if `"`varlist'"' == "" {
-    di as txt "no variables found"
-    return local skipped ""
-    return local source ""
-    return local numeric_source ""
-    return local string_source ""
-    return local numeric_recoded ""
-    return local string_recoded ""
-    return local recoded ""
-    return local value_label ""
-    return local status_variable ""
-    return local skipped_no_semantics ""
-    return local partial_semantic_source ""
-    return local complete_semantic_source ""
-    return local semantic_sources ""
-    return local semantic_levels ""
-    return scalar n_skipped_no_semantics = 0
-    return scalar n_partial_semantic = 0
-    return scalar n_complete_semantic = 0
-    return scalar yesvalue = `yesvalue'
-    return scalar verified = 0
-    return scalar n_numeric_recoded = 0
-    return scalar n_string_recoded = 0
-    return scalar n_recoded = 0
-    exit
-}
+    if `"`varlist'"' == "" {
+        capture quietly ds recode12_status, not
+        if _rc quietly ds
+        local varlist `r(varlist)'
+    }
 
-loc eligible
-loc numeric_eligible
-loc string_eligible
-loc skipped
+    if `"`varlist'"' == "" {
+        display as text "numeric variables successfully recoded: " as result 0
+        display as text "string variables successfully recoded: " as result 0
+        display as text "no variables were recoded; verification was not performed"
+        return local skipped ""
+        return local structural_skipped ""
+        return local semantic_skipped ""
+        return local source ""
+        return local numeric_source ""
+        return local string_source ""
+        return local numeric_recoded ""
+        return local string_recoded ""
+        return local recoded ""
+        return local value_label ""
+        return local status_variable ""
+        return local report ""
+        return scalar yesvalue = `yesvalue'
+        return scalar verified = 0
+        return scalar n_permissive_recoded = 0
+        return scalar n_structural_skipped = 0
+        return scalar n_semantic_skipped = 0
+        return scalar n_numeric_recoded = 0
+        return scalar n_string_recoded = 0
+        return scalar n_recoded = 0
+        exit
+    }
 
-qui foreach v of local varlist {
-    cap confirm numeric variable `v'
+    local skipped
+    local structural_skipped
+    local semantic_skipped
+    local plan_n = 0
+    local permissive_n = 0
+    local scan_string_vars
+    capture quietly ds `varlist', has(type string)
     if !_rc {
-        count if !inlist(`v', 1, 2, .)
-        loc bad = r(N)
-        count if `v' == 1
-        loc n1 = r(N)
-        count if `v' == 2
-        loc n2 = r(N)
-
-        if `bad' == 0 & `n1' > 0 & `n2' > 0 {
-            loc eligible `eligible' `v'
-            loc numeric_eligible `numeric_eligible' `v'
-        }
-        else local skipped `skipped' `v'
+        local scan_string_vars `r(varlist)'
+        mata: _recode12_scan_strings(`"`scan_string_vars'"')
     }
-    else {
-        tempvar normalized matchkey protectedkey sourcecode obsno
-        g strL `normalized' = ustrtrim(`v')
-        g strL `protectedkey' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[\p{Z}\s]+", "")
-        g strL `matchkey' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[^\p{L}\p{N}]+", "")
-        g long `obsno' = _n
 
-        count if ustrregexm(`protectedkey', "^\.[a-z]$")
-        if r(N) > 0 {
-            loc skipped `skipped' `v'
+    /*
+    Analysis creates an explicit plan.  No output variable is changed until
+    every candidate has passed structural and semantic analysis.
+    */
+    timer clear 91
+    timer on 91
+    quietly foreach v of local varlist {
+        if `"`v'"' == "recode12_status" {
+            local skipped `skipped' `v'
+            local structural_skipped `structural_skipped' `v'
             continue
         }
 
-        count if !inlist(`normalized', "", ".") & ///
-            ustrregexm(`normalized', "^[+-]?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))([eE][+-]?[0-9]+)?$")
-        loc n_numeric_strings = r(N)
+        local structural = 0
+        local semantic = 0
+        local source_kind
+        local source1
+        local source2
+        local display1
+        local display2
+        local label1
+        local label2
+        local directed = 0
+        local keyvar
+        local skip_reason
 
-        if `n_numeric_strings' > 0 {
-            count if !inlist(`normalized', "", ".")
-            loc n_nonmissing_strings = r(N)
-            count if `matchkey' == "1" & !inlist(`normalized', "", ".")
-            loc n_string1 = r(N)
-            count if `matchkey' == "2" & !inlist(`normalized', "", ".")
-            loc n_string2 = r(N)
+        local original_varlabel : variable label `v'
+        local original_vallabel : value label `v'
 
-            if `n_numeric_strings' != `n_nonmissing_strings' | ///
-                `n_string1' == 0 | `n_string2' == 0 | ///
-                (`n_string1' + `n_string2') != `n_nonmissing_strings' {
-                loc skipped `skipped' `v'
-                continue
-            }
-        }
+        capture confirm numeric variable `v'
+        if !_rc {
+            local source_kind numeric
+            local display1 "1"
+            local display2 "2"
+            count if !inlist(`v', 1, 2, .)
+            local n_bad = r(N)
+            count if `v' == 1
+            local n_one = r(N)
+            count if `v' == 2
+            local n_two = r(N)
 
-        su `obsno' if !inlist(`normalized', "", "."), meanonly
-        if r(N) == 0 {
-            loc skipped `skipped' `v'
-            continue
-        }
+            if (`n_bad' == 0 & `n_one' > 0 & `n_two' > 0) {
+                local structural = 1
+                local source1 1
+                local source2 2
 
-        loc first1 = r(min)
-        loc firstkey1 = `matchkey'[`first1']
-        g byte `sourcecode' = .
-        replace `sourcecode' = 1 if ///
-            `matchkey' == `"`firstkey1'"' & ///
-            !inlist(`normalized', "", ".")
-
-        su `obsno' if !inlist(`normalized', "", ".") & ///
-            missing(`sourcecode'), meanonly
-        if r(N) == 0 {
-            loc skipped `skipped' `v'
-            continue
-        }
-
-        loc first2 = r(min)
-        loc firstkey2 = `matchkey'[`first2']
-        replace `sourcecode' = 2 if ///
-            `matchkey' == `"`firstkey2'"' & ///
-            !inlist(`normalized', "", ".")
-
-        count if !inlist(`normalized', "", ".") & missing(`sourcecode')
-        if r(N) == 0 {
-            loc eligible `eligible' `v'
-            loc string_eligible `string_eligible' `v'
-        }
-        else local skipped `skipped' `v'
-    }
-}
-
-*------------------------------------------------------------*
-* V18 tightened semantic-identifiability gate
-*
-* Binary structure and mapping direction are not sufficient.
-* At least one source must identify the substantive construct:
-*   1. meaningful attached value labels,
-*   2. a meaningful and parseable variable label, or
-*   3. a meaningful source variable name.
-*
-* Cell categories alone (including Passed/Failed, Yes/No,
-* Positive/Negative, High/Low, Peach/Plum, A/B, or "1"/"2")
-* may help identify direction, but cannot independently justify
-* creating a substantive generated variable.
-*------------------------------------------------------------*
-
-loc structural_eligible `eligible'
-loc structural_numeric_eligible `numeric_eligible'
-loc structural_string_eligible `string_eligible'
-
-loc eligible
-loc numeric_eligible
-loc string_eligible
-loc skipped_no_semantics
-loc partial_semantic_source
-loc complete_semantic_source
-loc semantic_sources
-loc semantic_levels
-
-if `"`permissive'"' != "" {
-    di as err "Warning: permissive mode restores the less restrictive recoding behavior used in earlier recode12 versions. Variables with incomplete semantic information may be recoded. Review the results before use."
-
-    loc eligible `structural_eligible'
-    loc numeric_eligible `structural_numeric_eligible'
-    loc string_eligible `structural_string_eligible'
-}
-else {
-    qui foreach v of local structural_eligible {
-    _recode12_name_semantics, source(`v')
-    loc meaningful_name = r(meaningful)
-
-    loc source_label : variable label `v'
-    _recode12_text_semantics, text(`"`source_label'"')
-    loc meaningful_varlabel = r(meaningful)
-
-    loc parseable_coding_label = ustrregexm(`"`source_label'"', ///
-        "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)")
-
-    loc coding_label1
-    loc coding_label2
-    loc meaningful_coding_pair = 0
-    if `parseable_coding_label' {
-        loc coding_label1 = ustrtrim(ustrregexs(1))
-        loc coding_label2 = ustrtrim(ustrregexs(2))
-        _recode12_value_pair_semantics, ///
-            label1(`"`coding_label1'"') label2(`"`coding_label2'"')
-        loc meaningful_coding_pair = r(meaningful)
-    }
-
-    cap confirm numeric variable `v'
-    if !_rc {
-        loc source_vallab : value label `v'
-        loc value_label1
-        loc value_label2
-        loc meaningful_value_pair = 0
-
-        if `"`source_vallab'"' != "" {
-            loc value_label1 : label `source_vallab' 1
-            loc value_label2 : label `source_vallab' 2
-            _recode12_value_pair_semantics, ///
-                label1(`"`value_label1'"') label2(`"`value_label2'"')
-            loc meaningful_value_pair = r(meaningful)
-        }
-
-        loc semantic_level "none"
-        loc semantic_source "none"
-
-        if `meaningful_value_pair' {
-            loc semantic_level "complete"
-            loc semantic_source "value labels"
-        }
-        else if `parseable_coding_label' & `meaningful_coding_pair' & `meaningful_varlabel' {
-            loc semantic_level "complete"
-            loc semantic_source "variable label coding definition"
-        }
-        else if `meaningful_name' {
-            loc semantic_level "complete"
-            loc semantic_source "variable name"
-        }
-        else if `meaningful_varlabel' & !`parseable_coding_label' {
-            * A substantive construct label may identify what the
-            * variable measures, but without category meanings the
-            * direction of bare numeric 1/2 remains unverified.
-            loc semantic_level "none"
-            loc semantic_source "none"
-        }
-
-        if `"`semantic_level'"' == "none" {
-            loc skipped_no_semantics `skipped_no_semantics' `v'
-            loc skipped `skipped' `v'
-            continue
-        }
-
-        loc eligible `eligible' `v'
-        loc numeric_eligible `numeric_eligible' `v'
-        loc complete_semantic_source `complete_semantic_source' `v'
-        loc semantic_sources `"`semantic_sources' `v':`semantic_source'"'
-        loc semantic_levels `"`semantic_levels' `v':complete"'
-    }
-    else {
-        * For string variables, observed categories may establish
-        * coding direction, but the construct must still come from
-        * a meaningful variable name or variable label.
-        loc semantic_level "none"
-        loc semantic_source "none"
-
-        if `meaningful_name' {
-            loc semantic_level "complete"
-            loc semantic_source "variable name plus cell categories"
-        }
-        else if `meaningful_varlabel' {
-            loc semantic_level "complete"
-            loc semantic_source "variable label plus cell categories"
-        }
-
-        if `"`semantic_level'"' == "none" {
-            loc skipped_no_semantics `skipped_no_semantics' `v'
-            loc skipped `skipped' `v'
-            continue
-        }
-
-        loc eligible `eligible' `v'
-        loc string_eligible `string_eligible' `v'
-        loc complete_semantic_source `complete_semantic_source' `v'
-        loc semantic_sources `"`semantic_sources' `v':`semantic_source'"'
-        loc semantic_levels `"`semantic_levels' `v':complete"'
-    }
-}
-}
-
-loc n_skipped_no_semantics : word count `skipped_no_semantics'
-loc n_partial_semantic : word count `partial_semantic_source'
-loc n_complete_semantic : word count `complete_semantic_source'
-
-if `"`eligible'"' == "" {
-    di as txt "no variables met both coding and semantic-identifiability requirements"
-    return local skipped `"`skipped'"'
-    return local source ""
-    return local numeric_source ""
-    return local string_source ""
-    return local numeric_recoded ""
-    return local string_recoded ""
-    return local recoded ""
-    return local value_label ""
-    return local status_variable ""
-    return local skipped_no_semantics `"`skipped_no_semantics'"'
-    return local partial_semantic_source `"`partial_semantic_source'"'
-    return local complete_semantic_source `"`complete_semantic_source'"'
-    return local semantic_sources `"`semantic_sources'"'
-    return local semantic_levels `"`semantic_levels'"'
-    return scalar n_skipped_no_semantics = `n_skipped_no_semantics'
-    return scalar n_partial_semantic = `n_partial_semantic'
-    return scalar n_complete_semantic = `n_complete_semantic'
-    return scalar yesvalue = `yesvalue'
-    return scalar verified = 0
-    return scalar n_numeric_recoded = 0
-    return scalar n_string_recoded = 0
-    return scalar n_recoded = 0
-    exit
-}
-
-if `n_skipped_no_semantics' > 0 {
-    foreach v of local skipped_no_semantics {
-        di as txt "`v' skipped: binary coding was identified, but no substantive category meaning was available."
-    }
-}
-
-loc statusvar "recode12_status"
-cap confirm variable `statusvar'
-if !_rc {
-    loc statuslabel : variable label `statusvar'
-    loc statustype : type `statusvar'
-
-    if substr("`statustype'", 1, 3) != "str" | ///
-        !inlist(`"`statuslabel'"', "recode12 verification status", ///
-            "recode12 Verification Status") {
-        di as err "variable `statusvar' already exists and was not created by recode12"
-        exit 110
-    }
-
-    if "`statustype'" != "strL" {
-        loc statuswidth = real(substr("`statustype'", 4, .))
-        if `statuswidth' < 9 recast str9 `statusvar'
-    }
-}
-
-loc generated_names
-loc requested_names
-loc shortened_sources
-
-if `"`replace'"' == "" {
-    foreach v of local eligible {
-        _recode12_generated_name, source(`v') suffix(`suffix') ///
-            reserved(`"`generated_names'"')
-
-        loc requested `"`r(requested)'"'
-        loc new `"`r(generated)'"'
-
-        loc requested_names `requested_names' `requested'
-        loc generated_names `generated_names' `new'
-
-        if r(shortened) {
-            loc shortened_sources `shortened_sources' `v'
-        }
-    }
-}
-
-loc vallab "recode12_NoYes"
-cap qui label list `vallab'
-if _rc label define `vallab' 0 "No" 1 "Yes"
-else {
-    loc lab0 : label `vallab' 0
-    loc lab1 : label `vallab' 1
-
-    if `"`lab0'"' != "No" | `"`lab1'"' != "Yes" {
-        di as err "value label `vallab' already exists with incompatible definitions"
-        exit 110
-    }
-}
-
-if `"`numeric_eligible'"' != "" {
-    if `yesvalue' == 1 {
-        di as txt "numeric mapping rule: source value 1 -> 1 (Yes); source value 2 -> 0 (No)"
-    }
-    else {
-        di as txt "numeric mapping rule: source value 1 -> 0 (No); source value 2 -> 1 (Yes)"
-    }
-}
-
-loc recoded
-loc numeric_recoded
-loc string_recoded
-
-loc eligible_index = 0
-foreach v of local eligible {
-    loc ++eligible_index
-    if `"`replace'"' == "" {
-        loc new : word `eligible_index' of `generated_names'
-    }
-
-    cap confirm numeric variable `v'
-
-    if !_rc {
-        loc source_vallab : value label `v'
-        loc cat1
-        loc cat2
-
-        if `"`source_vallab'"' != "" {
-            loc cat1 : label `source_vallab' 1
-            loc cat2 : label `source_vallab' 2
-        }
-
-        loc target
-
-        * Priority 1: attached value-label text for the source category
-        * selected by yesvalue().
-        if `"`source_vallab'"' != "" {
-            if `yesvalue' == 1 {
-                loc target `"`cat1'"'
-            }
-            else {
-                loc target `"`cat2'"'
-            }
-        }
-
-        * Priority 2: explicit category definitions embedded in the
-        * variable label, such as:
-        * Race (1=White; 2=Non-White)
-        if `"`target'"' == "" {
-            loc source_label : variable label `v'
-            loc parse_label = subinstr(`"`source_label'"', ",", ";", .)
-
-            if ustrregexm(`"`parse_label'"', ///
-                "1[ ]*=[ ]*([^;|/)]+)[ ]*[;|/][ ]*2[ ]*=[ ]*([^)]+)") {
-
-                loc category1 = ustrtrim(ustrregexs(1))
-                loc category2 = ustrtrim(ustrregexs(2))
-
-                if `yesvalue' == 1 {
-                    loc target `"`category1'"'
+                local explicit1
+                local explicit2
+                if `"`original_vallabel'"' != "" {
+                    local explicit1 : label `original_vallabel' 1
+                    local explicit2 : label `original_vallabel' 2
                 }
-                else {
-                    loc target `"`category2'"'
+                if `"`explicit1'"' == "" | `"`explicit2'"' == "" {
+                    _recode12_parse_codes, text(`"`original_varlabel'"')
+                    if r(found) {
+                        local explicit1 `"`r(category1)'"'
+                        local explicit2 `"`r(category2)'"'
+                    }
+                }
+
+                if `"`explicit1'"' != "" & `"`explicit2'"' != "" {
+                    local display1 `"`explicit1'"'
+                    local display2 `"`explicit2'"'
+                    _recode12_generic_categories, ///
+                        category1(`"`explicit1'"') category2(`"`explicit2'"')
+                    if !r(generic) {
+                        local semantic = 1
+                        local label1 `"`explicit1'"'
+                        local label2 `"`explicit2'"'
+                    }
                 }
             }
-        }
-
-        * Priority 3: general predicate-name fallback when category
-        * metadata is absent. This is rule based, not variable specific.
-        if `"`target'"' == "" {
-            loc readable : subinstr local v "_" " ", all
-            loc readable = strproper(`"`readable'"')
-            loc lowername = lower("`v'")
-
-            if strpos("`lowername'", "contains_") == 1 {
-                loc object = substr("`v'", 10, .)
-                loc object : subinstr local object "_" " ", all
-                loc object = strproper(`"`object'"')
-
-                if `yesvalue' == 1 {
-                    loc target "Does Not Contain `object'"
-                }
-                else {
-                    loc target "Contains `object'"
-                }
-            }
-            else if strpos("`lowername'", "has_") == 1 {
-                loc object = substr("`v'", 5, .)
-                loc object : subinstr local object "_" " ", all
-                loc object = strproper(`"`object'"')
-
-                if `yesvalue' == 1 {
-                    loc target "Does Not Have `object'"
-                }
-                else {
-                    loc target "Has `object'"
-                }
-            }
-            else if strpos("`lowername'", "receives_") == 1 {
-                loc object = substr("`v'", 10, .)
-                loc object : subinstr local object "_" " ", all
-                loc object = strproper(`"`object'"')
-
-                if `yesvalue' == 1 {
-                    loc target "Does Not Receive `object'"
-                }
-                else {
-                    loc target "Receives `object'"
-                }
-            }
-            else if strpos("`lowername'", "eligible_") == 1 | ///
-                strpos("`lowername'", "eligibility_") == 1 {
-
-                if `yesvalue' == 1 {
-                    loc target "Not `readable'"
-                }
-                else {
-                    loc target `"`readable'"'
-                }
-            }
-            else if `"`v'"' == "benefit_code" | ///
-                `"`v'"' == "benefit_status_raw" {
-
-                if `yesvalue' == 1 {
-                    loc target "Does Not Receive Benefits"
-                }
-                else {
-                    loc target "Receives Benefits"
-                }
-            }
-            else {
-                * No semantic evidence exists. Use a neutral, truthful
-                * category label instead of inventing an opposite meaning.
-                loc target `"Category `yesvalue' of `readable'"'
-            }
-        }
-
-        loc target : subinstr local target `"' "'", all
-        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
-        loc newvl = ustrleft(`"`newvl'"', 80)
-
-        if `"`replace'"' != "" {
-            tempvar original
-            qui clonevar `original' = `v'
-            qui replace `v' = (`original' == `yesvalue') if !missing(`original')
-            label values `v' `vallab'
-            label variable `v' `"`newvl'"'
-
-            qui assert `v' == (`original' == `yesvalue') if !missing(`original')
-            qui assert missing(`v') if missing(`original')
-            qui assert inlist(`v', 0, 1) | missing(`v')
-
-            loc recoded `recoded' `v'
-            loc numeric_recoded `numeric_recoded' `v'
+            else local skip_reason "numeric values are not exactly 1, 2, and ordinary system missing with both categories represented"
         }
         else {
-            qui g byte `new' = (`v' == `yesvalue') if !missing(`v')
+            local source_kind string
+            local scan_index : list posof "`v'" in scan_string_vars
+            local n_reserved = `scan_n_reserved`scan_index''
+            if `n_reserved' > 0 {
+                local skip_reason "string variable contains a prohibited reserved missing token"
+            }
+            else {
+                local n_keys = `scan_n_keys`scan_index''
+                if `n_keys' != 2 {
+                    local skip_reason "string variable does not contain exactly two normalized nonmissing categories"
+                }
+                else {
+                    local invalid_numeric_string = ///
+                        `scan_invalid_numeric_string`scan_index''
+                    local n_12 = `scan_n_12`scan_index''
+                    local n_nonmissing = `scan_n_nonmissing`scan_index''
+
+                    if `invalid_numeric_string' {
+                        local skip_reason "string variable contains a prohibited numeric string"
+                    }
+                    else if (`n_12' > 0 & `n_12' < `n_nonmissing') {
+                        local skip_reason "string variable mixes string-coded 1/2 with ordinary text"
+                    }
+                    else {
+                        local structural = 1
+
+                        if `n_12' == `n_nonmissing' {
+                            local source1 1
+                            local source2 2
+                            local display1 "1"
+                            local display2 "2"
+
+                            _recode12_parse_codes, text(`"`original_varlabel'"')
+                            if r(found) {
+                                local c1 `"`r(category1)'"'
+                                local c2 `"`r(category2)'"'
+                                local display1 `"`c1'"'
+                                local display2 `"`c2'"'
+                                _recode12_generic_categories, ///
+                                    category1(`"`c1'"') category2(`"`c2'"')
+                                if !r(generic) {
+                                    local semantic = 1
+                                    local label1 `"`c1'"'
+                                    local label2 `"`c2'"'
+                                }
+                            }
+                            if !`semantic' {
+                                _recode12_binary_context, ///
+                                    varname(`"`v'"') varlabel(`"`original_varlabel'"')
+                                if r(sufficient) {
+                                    local semantic = 1
+                                    local label1 `"`r(category1)'"'
+                                    local label2 `"`r(category2)'"'
+                                    local display1 `"`r(category1)'"'
+                                    local display2 `"`r(category2)'"'
+                                }
+                            }
+                        }
+                        else {
+                            local first_key ///
+                                `"`scan_first_key`scan_index''"'
+                            local first_display ///
+                                `"`scan_first_display`scan_index''"'
+                            local second_key ///
+                                `"`scan_second_key`scan_index''"'
+                            local second_display ///
+                                `"`scan_second_display`scan_index''"'
+
+                            _recode12_directed_pair, ///
+                                keya(`"`first_key'"') keyb(`"`second_key'"')
+                            local directed = r(directed)
+
+                            if `directed' {
+                                local negative_key `"`r(negative_key)'"'
+                                local positive_key `"`r(positive_key)'"'
+                                local pair_family `"`r(family)'"'
+                                if `"`first_key'"' == `"`negative_key'"' {
+                                    local negative_display `"`first_display'"'
+                                    local positive_display `"`second_display'"'
+                                }
+                                else {
+                                    local negative_display `"`second_display'"'
+                                    local positive_display `"`first_display'"'
+                                }
+
+                                _recode12_context, ///
+                                    varname(`"`v'"') varlabel(`"`original_varlabel'"')
+                                local context_sufficient = r(sufficient)
+                                local context `"`r(context)'"'
+
+                                if `context_sufficient' | r(category_complete) {
+                                    local semantic = 1
+                                    local source1 `"`negative_key'"'
+                                    local source2 `"`positive_key'"'
+                                    local display1 `"`negative_display'"'
+                                    local display2 `"`positive_display'"'
+                                    _recode12_directed_labels, ///
+                                        family(`"`pair_family'"') ///
+                                        context(`"`context'"') ///
+                                        negativekey(`"`negative_key'"') ///
+                                        positivekey(`"`positive_key'"') ///
+                                        displaya(`"`first_display'"') ///
+                                        keya(`"`first_key'"') ///
+                                        displayb(`"`second_display'"') ///
+                                        keyb(`"`second_key'"')
+                                    local label1 `"`r(negative_label)'"'
+                                    local label2 `"`r(positive_label)'"'
+                                }
+                                else if `permissive_on' {
+                                    /*
+                                    Sole approved exception: a directed but
+                                    semantic-insufficient permissive pair keeps
+                                    the affirmative category at output 1 under
+                                    either yesvalue setting.
+                                    */
+                                    if `yesvalue' == 1 {
+                                        local source1 `"`positive_key'"'
+                                        local source2 `"`negative_key'"'
+                                        local display1 `"`positive_display'"'
+                                        local display2 `"`negative_display'"'
+                                    }
+                                    else {
+                                        local source1 `"`negative_key'"'
+                                        local source2 `"`positive_key'"'
+                                        local display1 `"`negative_display'"'
+                                        local display2 `"`positive_display'"'
+                                    }
+                                }
+                                else {
+                                    local source1 `"`negative_key'"'
+                                    local source2 `"`positive_key'"'
+                                    local display1 `"`negative_display'"'
+                                    local display2 `"`positive_display'"'
+                                }
+                            }
+                            else {
+                                local source1 `"`first_key'"'
+                                local source2 `"`second_key'"'
+                                local display1 `"`first_display'"'
+                                local display2 `"`second_display'"'
+                                _recode12_context, ///
+                                    varname(`"`v'"') varlabel(`"`original_varlabel'"')
+                                if r(sufficient) {
+                                    local semantic = 1
+                                    local label1 `"`first_display'"'
+                                    local label2 `"`second_display'"'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        local recode_allowed = `structural' & (`semantic' | `permissive_on')
+        if !`recode_allowed' {
+            local skipped `skipped' `v'
+            if !`structural' {
+                local structural_skipped `structural_skipped' `v'
+                if `"`skip_reason'"' == "" local skip_reason "structurally ineligible"
+            }
+            else {
+                local semantic_skipped `semantic_skipped' `v'
+            }
+            continue
+        }
+
+        if !`semantic' {
+            local ++permissive_n
+            local neutral `"Recoded `v' (0=No; 1=Yes)"'
+            local label1 `"`neutral'"'
+            local label2 `"`neutral'"'
+        }
+        else {
+            local label1 `"Recoded `label1' (0=No; 1=Yes)"'
+            local label2 `"Recoded `label2' (0=No; 1=Yes)"'
+        }
+        local label1 = ustrleft(`"`label1'"', 80)
+        local label2 = ustrleft(`"`label2'"', 80)
+
+        local ++plan_n
+        local p_var`plan_n' `v'
+        local p_kind`plan_n' `source_kind'
+        local p_source1`plan_n' `"`source1'"'
+        local p_source2`plan_n' `"`source2'"'
+        local p_display1`plan_n' `"`display1'"'
+        local p_display2`plan_n' `"`display2'"'
+        local p_label1`plan_n' `"`label1'"'
+        local p_label2`plan_n' `"`label2'"'
+        local p_permissive`plan_n' = !`semantic'
+        local p_keyvar`plan_n' `keyvar'
+    }
+    timer off 91
+    quietly timer list 91
+    display as error "PROFILE_ANALYSIS_SECONDS=" r(t91)
+
+    if `plan_n' == 0 {
+        display as text "numeric variables successfully recoded: " as result 0
+        display as text "string variables successfully recoded: " as result 0
+        display as text "no variables were recoded; verification was not performed"
+        local n_structural_skipped : word count `structural_skipped'
+        local n_semantic_skipped : word count `semantic_skipped'
+        return local skipped `"`skipped'"'
+        return local structural_skipped `"`structural_skipped'"'
+        return local semantic_skipped `"`semantic_skipped'"'
+        return local source ""
+        return local numeric_source ""
+        return local string_source ""
+        return local numeric_recoded ""
+        return local string_recoded ""
+        return local recoded ""
+        return local value_label ""
+        return local status_variable ""
+        return local report ""
+        return scalar yesvalue = `yesvalue'
+        return scalar verified = 0
+        return scalar n_permissive_recoded = 0
+        return scalar n_structural_skipped = `n_structural_skipped'
+        return scalar n_semantic_skipped = `n_semantic_skipped'
+        return scalar n_numeric_recoded = 0
+        return scalar n_string_recoded = 0
+        return scalar n_recoded = 0
+        exit
+    }
+
+    if `permissive_on' & `permissive_n' > 0 {
+        display as error ///
+            "Warning: `permissive_n' variable(s) with incomplete semantic information will be recoded."
+    }
+
+    if `"`display'"' != "" {
+        capture putdocx describe
+        if !_rc {
+            display as error ///
+                "display cannot create its report while another putdocx document is active"
+            display as error ///
+                "save or clear the active putdocx document and rerun recode12"
+            exit 110
+        }
+    }
+
+    /*
+    Preflight every generated name and the shared value label before any
+    output data are written.
+    */
+    timer clear 92
+    timer on 92
+    local planned_names
+    if `"`replace'"' == "" {
+        forvalues i = 1/`plan_n' {
+            local v `p_var`i''
+            _recode12_newname, source(`v') suffix(`"`suffix'"')
+            local new `r(name)'
+            if `: list new in planned_names' {
+                display as error "generated variable name collision: `new'"
+                exit 110
+            }
+            confirm new variable `new'
+            local planned_names `planned_names' `new'
+            local p_new`i' `new'
+        }
+    }
+
+    local vallab "recode12_NoYes"
+    capture quietly label list `vallab'
+    if !_rc {
+        _recode12_value_label_exact, name(`vallab')
+        if !r(exact) {
+            display as error ///
+                "value label `vallab' already exists with incompatible definitions"
+            exit 110
+        }
+    }
+    else label define `vallab' 0 "No" 1 "Yes"
+
+    local statusvar "recode12_status"
+    capture confirm variable `statusvar'
+    if !_rc {
+        local statuslabel : variable label `statusvar'
+        local statustype : type `statusvar'
+        if substr(`"`statustype'"', 1, 3) != "str" | ///
+            !inlist(`"`statuslabel'"', "recode12 verification status", ///
+                "recode12 Verification Status") {
+            display as error ///
+                "variable `statusvar' already exists and was not created by recode12"
+            exit 110
+        }
+    }
+    timer off 92
+    quietly timer list 92
+    display as error "PROFILE_PREFLIGHT_SECONDS=" r(t92)
+
+    local recoded
+    local numeric_recoded
+    local string_recoded
+    local source
+    local numeric_source
+    local string_source
+
+    timer clear 93
+    timer on 93
+    forvalues i = 1/`plan_n' {
+        local v `p_var`i''
+        local kind `p_kind`i''
+        local source1 `"`p_source1`i''"'
+        local source2 `"`p_source2`i''"'
+        local newvl `"`p_label`yesvalue'`i''"'
+        local keyvar `p_keyvar`i''
+
+        tempvar sourcecode
+        if `"`kind'"' == "numeric" {
+            quietly generate byte `sourcecode' = `v' if !missing(`v')
+        }
+        else {
+            tempvar keyvar
+            quietly generate strL `keyvar' = ///
+                ustrregexra(ustrlower(ustrtrim(ustrnormalize(`v', "nfkc"))), ///
+                    "[\p{Z}\s\p{P}\p{S}]+", "")
+            quietly generate byte `sourcecode' = .
+            quietly replace `sourcecode' = 1 if `keyvar' == `"`source1'"' & ///
+                !missing(`keyvar')
+            quietly replace `sourcecode' = 2 if `keyvar' == `"`source2'"' & ///
+                !missing(`keyvar')
+        }
+
+        quietly count if `sourcecode' == 1
+        local source_n1 = r(N)
+        if `source_n1' == 0 {
+            display as error "`v': internal source category 1 is absent"
+            exit 459
+        }
+        quietly count if `sourcecode' == 2
+        local source_n2 = r(N)
+        if `source_n2' == 0 {
+            display as error "`v': internal source category 2 is absent"
+            exit 459
+        }
+        quietly count if missing(`sourcecode')
+        local source_nmissing = r(N)
+
+        if `"`replace'"' == "" {
+            local new `p_new`i''
+            quietly generate byte `new' = (`sourcecode' == `yesvalue') ///
+                if !missing(`sourcecode')
             label variable `new' `"`newvl'"'
             label values `new' `vallab'
-
-            qui assert `new' == (`v' == `yesvalue') if !missing(`v')
-            qui assert missing(`new') if missing(`v')
-            qui assert inlist(`new', 0, 1) | missing(`new')
-
-            loc recoded `recoded' `new'
-            loc numeric_recoded `numeric_recoded' `new'
+            local output `new'
         }
-    }
-    else {
-        tempvar normalized key protectedkey sourcecode obsno
-        qui g strL `normalized' = ustrtrim(`v')
-        qui g strL `protectedkey' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[\p{Z}\s]+", "")
-        qui g strL `key' = ustrregexra( ///
-            ustrlower(ustrnormalize(`normalized', "nfkc")), ///
-            "[^\p{L}\p{N}]+", "")
-        qui g long `obsno' = _n
-
-        qui assert !ustrregexm(`protectedkey', "^\.[a-z]$")
-
-        qui su `obsno' if !inlist(`normalized', "", "."), meanonly
-        loc first1 = r(min)
-        loc cat1 = `normalized'[`first1']
-        loc key1 = `key'[`first1']
-
-        qui g byte `sourcecode' = .
-        qui replace `sourcecode' = 1 if ///
-            `key' == `"`key1'"' & ///
-            !inlist(`normalized', "", ".")
-
-        qui su `obsno' if !inlist(`normalized', "", ".") & ///
-            missing(`sourcecode'), meanonly
-        loc first2 = r(min)
-        loc cat2 = `normalized'[`first2']
-        loc key2 = `key'[`first2']
-
-        loc classification "unordered string"
-        loc method "first nonmissing appearance"
-        loc affirmative_category = .
-        loc negative_category = .
-        loc matched_affirmative ""
-        loc matched_negative ""
-        loc distance1 = .
-        loc distance2 = .
-
-        qui replace `sourcecode' = .
-
-        if inlist(`"`key1'"', "1", "2") & ///
-            inlist(`"`key2'"', "1", "2") & ///
-            `"`key1'"' != `"`key2'"' {
-
-            loc classification "string-coded numeric binary"
-            loc method "numeric-equivalent string coding"
-
-            qui replace `sourcecode' = 1 if ///
-                `key' == "1" & !inlist(`normalized', "", ".")
-
-            qui replace `sourcecode' = 2 if ///
-                `key' == "2" & !inlist(`normalized', "", ".")
-
-            loc target "`yesvalue'"
-            loc source_label : variable label `v'
-
-            if ustrregexm(`"`source_label'"', ///
-                "1[ ]*=[ ]*([^;,/)]+)[ ]*[;,/][ ]*2[ ]*=[ ]*([^)]+)") {
-                if `yesvalue' == 1 {
-                    loc target = ustrtrim(ustrregexs(1))
-                }
-                else {
-                    loc target = ustrtrim(ustrregexs(2))
-                }
-            }
-
-            if `"`target'"' == "`yesvalue'" {
-                if `"`v'"' == "dental_coverage" {
-                    if `yesvalue' == 1 {
-                        loc target "No Dental Insurance"
-                    }
-                    else {
-                        loc target "Has Dental Insurance"
-                    }
-                }
-                else if `"`v'"' == "service_status" {
-                    if `yesvalue' == 1 {
-                        loc target "Does Not Receive Services"
-                    }
-                    else {
-                        loc target "Receives Services"
-                    }
-                }
-                else if `"`v'"' == "access_status" {
-                    if `yesvalue' == 1 {
-                        loc target "No Access"
-                    }
-                    else {
-                        loc target "Has Access"
-                    }
-                }
-                else if `"`v'"' == "benefit_code" {
-                    if `yesvalue' == 1 {
-                        loc target "Does Not Receive Benefits"
-                    }
-                    else {
-                        loc target "Receives Benefits"
-                    }
-                }
-            }
-
-            if `"`target'"' == "`yesvalue'" {
-                _recode12_name_semantics, source(`v')
-                if r(meaningful) {
-                    loc target : subinstr local v "_" " ", all
-                    loc target = strproper(`"`target'"')
-                }
-            }
-
-            di as txt "`v': storage type = string; classification = string-coded numeric binary"
-            if `yesvalue' == 1 {
-                di as txt `"  string "1" -> source 1 -> 1 (Yes); string "2" -> source 2 -> 0 (No)"'
-            }
-            else {
-                di as txt `"  string "1" -> source 1 -> 0 (No); string "2" -> source 2 -> 1 (Yes)"'
-            }
-            di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
+        else if `"`kind'"' == "numeric" {
+            quietly replace `v' = (`sourcecode' == `yesvalue') ///
+                if !missing(`sourcecode')
+            label variable `v' `"`newvl'"'
+            label values `v' `vallab'
+            local output `v'
         }
         else {
-            _recode12_classify_pair, cat1(`"`cat1'"') cat2(`"`cat2'"')
-
-            loc classified = r(classified)
-            loc affirmative_category = r(affirmative_category)
-            loc negative_category = r(negative_category)
-            loc method `"`r(method)'"'
-            loc matched_affirmative `"`r(matched_affirmative)'"'
-            loc matched_negative `"`r(matched_negative)'"'
-            loc distance1 = r(distance1)
-            loc distance2 = r(distance2)
-
-            if `classified' {
-                loc classification "directed string"
-
-                if `affirmative_category' == 1 {
-                    loc affirmative_value `"`cat1'"'
-                    loc negative_value `"`cat2'"'
-                    loc affirmative_key `"`key1'"'
-                    loc negative_key `"`key2'"'
-                }
-                else {
-                    loc affirmative_value `"`cat2'"'
-                    loc negative_value `"`cat1'"'
-                    loc affirmative_key `"`key2'"'
-                    loc negative_key `"`key1'"'
-                }
-
-                * Permanent directed-category rule:
-                * source 1 = negative category
-                * source 2 = affirmative category
-                * yesvalue() selects which source category becomes output 1.
-                qui replace `sourcecode' = 1 if ///
-                    `key' == `"`negative_key'"' & ///
-                    !inlist(`normalized', "", ".")
-
-                qui replace `sourcecode' = 2 if ///
-                    `key' == `"`affirmative_key'"' & ///
-                    !inlist(`normalized', "", ".")
-
-                if `yesvalue' == 1 {
-                    loc target `"`negative_value'"'
-                }
-                else {
-                    loc target `"`affirmative_value'"'
-                }
-
-                di as txt "`v': storage type = string; classification = directed string"
-                if `yesvalue' == 1 {
-                    di as txt `"  negative category: `negative_value' -> source 1 -> 1 (Yes)"'
-                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 0 (No)"'
-                }
-                else {
-                    di as txt `"  negative category: `negative_value' -> source 1 -> 0 (No)"'
-                    di as txt `"  affirmative category: `affirmative_value' -> source 2 -> 1 (Yes)"'
-                }
-
-                di as txt "  normalized keys: `key1' / `key2'"
-                di as txt "  mapping basis: `method'; yesvalue(`yesvalue')"
-
-                if `"`method'"' == "conservative fuzzy match" {
-                    di as txt "  matched canonical pair: `matched_affirmative' / `matched_negative'"
-                    di as txt "  edit distances by observed category: `distance1' / `distance2'"
-                }
+            local oldformat : format `v'
+            local charlist : char `v'[]
+            local char_n = 0
+            foreach ch of local charlist {
+                local ++char_n
+                local char_name`char_n' `ch'
+                local char_value`char_n' : char `v'[`ch']
             }
-            else {
-                qui replace `sourcecode' = 1 if ///
-                    `key' == `"`key1'"' & ///
-                    !inlist(`normalized', "", ".")
 
-                qui replace `sourcecode' = 2 if ///
-                    `key' == `"`key2'"' & ///
-                    !inlist(`normalized', "", ".")
-
-                if `yesvalue' == 1 local target `"`cat1'"'
-                else local target `"`cat2'"'
-
-                di as txt "`v': storage type = string; classification = unordered string"
-                if `yesvalue' == 1 {
-                    di as txt `"  source category 1: `cat1' -> 1 (Yes)"'
-                    di as txt `"  source category 2: `cat2' -> 0 (No)"'
-                }
-                else {
-                    di as txt `"  source category 1: `cat1' -> 0 (No)"'
-                    di as txt `"  source category 2: `cat2' -> 1 (Yes)"'
-                }
-                di as txt "  mapping basis: first nonmissing appearance; yesvalue(`yesvalue')"
-            }
-        }
-
-        qui count if !inlist(`normalized', "", ".") & missing(`sourcecode')
-        qui assert r(N) == 0
-
-        * Final direction-aware character-label synthesis.
-        * It may improve grammar, but it may never reverse the source
-        * category selected by yesvalue().
-        if `"`classification'"' == "directed string" {
-            if `yesvalue' == 1 {
-                if `"`v'"' == "final_exam_result" {
-                    loc target "Failed Final Exam"
-                }
-                else if `"`v'"' == "completed_training" {
-                    loc target "Did Not Complete Training"
-                }
-                else if `"`v'"' == "contains_ext_m" {
-                    loc target "Does Not Contain Ext M"
-                }
-                else if `"`v'"' == "contains_ext_n" {
-                    loc target "Does Not Contain Ext N"
-                }
-                else if `"`v'"' == "dental_coverage" {
-                    loc target "No Dental Insurance"
-                }
-                else if `"`v'"' == "military_service_status" {
-                    loc target "Has Not Served in the Military"
-                }
-                else if `"`v'"' == "primary_care_access" {
-                    loc target "Has No Access to Primary Care"
-                }
-                else if `"`v'"' == "certificate_accreditation" {
-                    loc target "Certificate Has Not Been Accredited"
-                }
-                else if `"`v'"' == "performance_evaluation_result" {
-                    loc target "Failed Performance Evaluation"
-                }
-                else if `"`v'"' == "screening_result" {
-                    loc target "Failed Screening"
-                }
-                else if `"`v'"' == "eligibility_for_medicaid" {
-                    loc target "Not Eligible for Medicaid"
-                }
-                else if `"`v'"' == "crash_course_enrollment" {
-                    loc target "Not Enrolled in Crash Course Training"
-                }
-                else if `"`v'"' == "qualify_exam_result" {
-                    loc target "Failed Qualification Exam"
-                }
-                else if `"`v'"' == "professional_training_result" {
-                    loc target "Failed Professional Training"
-                }
-                else if `"`v'"' == "Infected" {
-                    loc target "Not Infected"
-                }
-                else if `"`v'"' == "receives_public_assistance" {
-                    loc target "Does Not Receive Public Assistance"
-                }
-                else if `"`v'"' == "road_test_result" {
-                    loc target "Failed Road Test"
-                }
-                else if `"`v'"' == "benefit_code" {
-                    loc target "Does Not Receive Benefits"
-                }
-            }
-            else {
-                if `"`v'"' == "final_exam_result" {
-                    loc target "Passed Final Exam"
-                }
-                else if `"`v'"' == "completed_training" {
-                    loc target "Completed Training"
-                }
-                else if `"`v'"' == "contains_ext_m" {
-                    loc target "Contains Ext M"
-                }
-                else if `"`v'"' == "contains_ext_n" {
-                    loc target "Contains Ext N"
-                }
-                else if `"`v'"' == "dental_coverage" {
-                    loc target "Has Dental Insurance"
-                }
-                else if `"`v'"' == "military_service_status" {
-                    loc target "Has Served in the Military"
-                }
-                else if `"`v'"' == "primary_care_access" {
-                    loc target "Has Access to Primary Care"
-                }
-                else if `"`v'"' == "certificate_accreditation" {
-                    loc target "Certificate Has Been Accredited"
-                }
-                else if `"`v'"' == "performance_evaluation_result" {
-                    loc target "Passed Performance Evaluation"
-                }
-                else if `"`v'"' == "screening_result" {
-                    loc target "Passed Screening"
-                }
-                else if `"`v'"' == "eligibility_for_medicaid" {
-                    loc target "Eligible for Medicaid"
-                }
-                else if `"`v'"' == "crash_course_enrollment" {
-                    loc target "Enrolled in Crash Course Training"
-                }
-                else if `"`v'"' == "qualify_exam_result" {
-                    loc target "Passed Qualification Exam"
-                }
-                else if `"`v'"' == "professional_training_result" {
-                    loc target "Passed Professional Training"
-                }
-                else if `"`v'"' == "Infected" {
-                    loc target "Infected"
-                }
-                else if `"`v'"' == "receives_public_assistance" {
-                    loc target "Receives Public Assistance"
-                }
-                else if `"`v'"' == "road_test_result" {
-                    loc target "Passed Road Test"
-                }
-                else if `"`v'"' == "benefit_code" {
-                    loc target "Receives Benefits"
-                }
-            }
-        }
-
-        loc target : subinstr local target `"' "'", all
-        loc newvl `"Recoded `target' (0=No; 1=Yes)"'
-        loc newvl = ustrleft(`"`newvl'"', 80)
-
-        if `"`replace'"' != "" {
             tempvar newvalue
-            qui g byte `newvalue' = ///
-                (`sourcecode' == `yesvalue') if !missing(`sourcecode')
+            quietly generate byte `newvalue' = (`sourcecode' == `yesvalue') ///
+                if !missing(`sourcecode')
+            quietly order `newvalue', before(`v')
+            quietly drop `v'
+            quietly rename `newvalue' `v'
 
-            qui order `newvalue', before(`v')
-            qui drop `v'
-            qui rename `newvalue' `v'
-
+            local width = 8
+            if regexm(`"`oldformat'"', "^%-?([0-9]+)s$") {
+                local width = real(regexs(1))
+            }
+            format `v' %`width'.0g
+            if `char_n' > 0 {
+                forvalues c = 1/`char_n' {
+                    local ch `char_name`c''
+                    local cv `"`char_value`c''"'
+                    char `v'[`ch'] `"`cv'"'
+                }
+            }
             label variable `v' `"`newvl'"'
             label values `v' `vallab'
+            local output `v'
+        }
+        local p_output`i' `output'
 
-            qui assert `v' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            qui assert missing(`v') if missing(`sourcecode')
-            qui assert inlist(`v', 0, 1) | missing(`v')
+        quietly assert `output' == (`sourcecode' == `yesvalue') ///
+            if !missing(`sourcecode')
+        quietly assert missing(`output') if missing(`sourcecode')
+        quietly assert inlist(`output', 0, 1) | missing(`output')
+        quietly count if `output' == 0
+        local output_n0 = r(N)
+        if `output_n0' == 0 {
+            display as error "`output': validation found no output value 0"
+            exit 459
+        }
+        quietly count if `output' == 1
+        local output_n1 = r(N)
+        if `output_n1' == 0 {
+            display as error "`output': validation found no output value 1"
+            exit 459
+        }
+        quietly count if missing(`output')
+        local output_nmissing = r(N)
+        local expected_n0 = cond(`yesvalue' == 1, ///
+            `source_n2', `source_n1')
+        local expected_n1 = cond(`yesvalue' == 1, ///
+            `source_n1', `source_n2')
+        if `output_n0' != `expected_n0' | ///
+            `output_n1' != `expected_n1' | ///
+            `output_nmissing' != `source_nmissing' {
+            display as error ///
+                "`output': source/output frequency validation failed"
+            exit 459
+        }
 
-            loc recoded `recoded' `v'
-            loc string_recoded `string_recoded' `v'
+        local checked_vallabel : value label `output'
+        local checked_varlabel : variable label `output'
+        local checked_lab0 : label `checked_vallabel' 0
+        local checked_lab1 : label `checked_vallabel' 1
+        if `"`checked_vallabel'"' != `"`vallab'"' | ///
+            `"`checked_lab0'"' != "No" | `"`checked_lab1'"' != "Yes" {
+            display as error "`output': value-label validation failed"
+            exit 459
+        }
+        if `"`checked_varlabel'"' != `"`newvl'"' {
+            display as error "`output': variable-label validation failed"
+            exit 459
+        }
+
+        local source `source' `v'
+        local recoded `recoded' `output'
+        if `"`kind'"' == "numeric" {
+            local numeric_source `numeric_source' `v'
+            local numeric_recoded `numeric_recoded' `output'
         }
         else {
-            qui g byte `new' = ///
-                (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-
-            label variable `new' `"`newvl'"'
-            label values `new' `vallab'
-
-            qui assert `new' == (`sourcecode' == `yesvalue') if !missing(`sourcecode')
-            qui assert missing(`new') if missing(`sourcecode')
-            qui assert inlist(`new', 0, 1) | missing(`new')
-
-            loc recoded `recoded' `new'
-            loc string_recoded `string_recoded' `new'
+            local string_source `string_source' `v'
+            local string_recoded `string_recoded' `output'
         }
     }
-}
+    timer off 93
+    quietly timer list 93
+    display as error "PROFILE_MUTATION_VALIDATION_SECONDS=" r(t93)
 
-cap confirm variable `statusvar'
-if _rc g str9 `statusvar' = "confirmed"
-else qui replace `statusvar' = "confirmed"
-label variable `statusvar' "recode12 Verification Status"
+    capture confirm variable `statusvar'
+    if _rc quietly generate str9 `statusvar' = "confirmed"
+    else quietly replace `statusvar' = "confirmed"
+    label variable `statusvar' "recode12 verification status"
+    quietly assert `statusvar' == "confirmed"
+    local checked_status_label : variable label `statusvar'
+    if `"`checked_status_label'"' != "recode12 verification status" {
+        display as error "status-variable validation failed"
+        exit 459
+    }
 
-loc n_recoded : word count `recoded'
-loc n_numeric_recoded : word count `numeric_recoded'
-loc n_string_recoded : word count `string_recoded'
+    local n_recoded : word count `recoded'
+    local n_numeric_recoded : word count `numeric_recoded'
+    local n_string_recoded : word count `string_recoded'
+    local n_structural_skipped : word count `structural_skipped'
+    local n_semantic_skipped : word count `semantic_skipped'
 
-if `"`display'"' != "" {
-    if `"`replace'"' == "" {
-        loc name_count : word count `eligible'
-        forvalues i = 1/`name_count' {
-            loc source_name : word `i' of `eligible'
-            loc requested_name : word `i' of `requested_names'
-            loc generated_name : word `i' of `generated_names'
+    local report_path
+    if `"`display'"' != "" {
+        local report_date = subinstr(`"`c(current_date)'"', " ", "", .)
+        local report_time = subinstr(`"`c(current_time)'"', ":", "", .)
+        local report_dir = subinstr(`"`c(pwd)'"', "\", "/", .)
+        local report_stem `"recode12_display_`report_date'_`report_time'"'
+        local report_path `"`report_dir'/`report_stem'.docx"'
+        local report_index = 1
+        capture confirm file `"`report_path'"'
+        while !_rc {
+            local ++report_index
+            local report_path ///
+                `"`report_dir'/`report_stem'_`report_index'.docx"'
+            capture confirm file `"`report_path'"'
+        }
 
-            if `"`requested_name'"' != `"`generated_name'"' {
-                di as txt "generated-variable name shortened: " ///
-                    as result "`requested_name'" ///
-                    as txt " -> " as result "`generated_name'"
+        local regular_numeric_n = 0
+        local regular_string_n = 0
+        local permissive_numeric_n = 0
+        local permissive_string_n = 0
+        forvalues i = 1/`plan_n' {
+            if !`p_permissive`i'' {
+                if `"`p_kind`i''"' == "numeric" {
+                    local ++regular_numeric_n
+                }
+                else if `"`p_kind`i''"' == "string" {
+                    local ++regular_string_n
+                }
+            }
+            else {
+                if `"`p_kind`i''"' == "numeric" {
+                    local ++permissive_numeric_n
+                }
+                else if `"`p_kind`i''"' == "string" {
+                    local ++permissive_string_n
+                }
             }
         }
+
+        capture noisily {
+        putdocx begin, landscape font("Times New Roman", 8)
+        putdocx paragraph, halign(center) spacing(after, 12pt)
+        putdocx text ("recode12: Summary of Recoding to 0/1 Binary Variables"), ///
+            bold font("Times New Roman", 12, "000000")
+        putdocx paragraph
+
+        local report_sections "regular_numeric regular_string"
+        if `permissive_on' {
+            local report_sections "`report_sections' permissive"
+        }
+        local report_table_number = 0
+        foreach report_section of local report_sections {
+            if `"`report_section'"' == "regular_numeric" {
+                local group_n = `regular_numeric_n'
+                local group_title "Eligible Numeric Variables Recoding Summary"
+                local report_table "recode12_numeric"
+                local ordered_kinds "numeric"
+                local require_permissive = 0
+                local table_columns = 3
+                local source_column = 1
+                local type_column = 0
+                local mapping_column = 2
+                local result_column = 3
+                local group_subtitle ""
+            }
+            else if `"`report_section'"' == "regular_string" {
+                local group_n = `regular_string_n'
+                local group_title "Eligible String Variables Recoding Summary"
+                local report_table "recode12_string"
+                local ordered_kinds "string"
+                local require_permissive = 0
+                local table_columns = 3
+                local source_column = 1
+                local type_column = 0
+                local mapping_column = 2
+                local result_column = 3
+                local group_subtitle ""
+            }
+            else {
+                local group_n = `permissive_n'
+                local group_title "Recoding Summary for Variables with Unclear Semantics"
+                local group_subtitle "under Permissive Mode"
+                local report_table "recode12_permissive"
+                local ordered_kinds "numeric string"
+                local require_permissive = 1
+                local table_columns = 4
+                local source_column = 1
+                local type_column = 2
+                local mapping_column = 3
+                local result_column = 4
+            }
+            if `group_n' == 0 & !`permissive_on' continue
+
+            local ++report_table_number
+            if `report_table_number' > 1 {
+                putdocx pagebreak
+            }
+            putdocx paragraph, spacing(before, 10pt) spacing(after, 4pt)
+            if `"`group_subtitle'"' == "" {
+                putdocx text ("Table `report_table_number'. `group_title'"), ///
+                    font("Times New Roman", 10, "000000")
+            }
+            else {
+                putdocx text ("Table `report_table_number'. `group_title'"), ///
+                    font("Times New Roman", 10, "000000") linebreak
+                putdocx text (`"`group_subtitle'"'), ///
+                    font("Times New Roman", 10, "000000")
+            }
+
+            local group_rows = `group_n' + 1
+            putdocx table `report_table' = (`group_rows', `table_columns'), ///
+                width(9in) layout(fixed) headerrow(1)
+            putdocx table `report_table'(1,`source_column') = ///
+                ("Variable")
+            if `type_column' > 0 {
+                putdocx table `report_table'(1,`type_column') = ("Type")
+            }
+            putdocx table `report_table'(1,`mapping_column') = ///
+                ("Mapping process")
+            putdocx table `report_table'(1,`result_column') = ("Result")
+            putdocx table `report_table'(1,.), shading(D9D9D9)
+            if `type_column' == 0 {
+                putdocx table `report_table'(.,1), width(1.7in)
+                putdocx table `report_table'(.,2), width(3.2in)
+                putdocx table `report_table'(.,3), width(4.1in)
+            }
+            else {
+                putdocx table `report_table'(.,1), width(1.4in)
+                putdocx table `report_table'(.,2), width(0.7in)
+                putdocx table `report_table'(.,3), width(2.8in)
+                putdocx table `report_table'(.,4), width(4.1in)
+            }
+            local group_row = 1
+            foreach ordered_kind of local ordered_kinds {
+                forvalues i = 1/`plan_n' {
+                    if `"`p_kind`i''"' != `"`ordered_kind'"' continue
+                    local report_permissive = `p_permissive`i''
+                    if `report_permissive' != `require_permissive' continue
+
+                    local ++group_row
+                    local report_source `p_var`i''
+                    local report_output `p_output`i''
+                    local report_kind = ustrtitle(`"`p_kind`i''"')
+                    local report_display1 `"`p_display1`i''"'
+                    local report_display2 `"`p_display2`i''"'
+                    local report_label `"`p_label`yesvalue'`i''"'
+                    if `yesvalue' == 1 {
+                        local report_mapping1 ///
+                            `"`report_display1' -> 1 (Yes)"'
+                        local report_mapping2 ///
+                            `"`report_display2' -> 0 (No)"'
+                    }
+                    else {
+                        local report_mapping1 ///
+                            `"`report_display1' -> 0 (No)"'
+                        local report_mapping2 ///
+                            `"`report_display2' -> 1 (Yes)"'
+                    }
+
+                    putdocx table `report_table'(`group_row',`source_column') = ///
+                        (`"`report_source'"')
+                    if `type_column' > 0 {
+                        putdocx table `report_table'(`group_row',`type_column') = ///
+                            (`"`report_kind'"')
+                    }
+                    putdocx table `report_table'(`group_row',`mapping_column') = ///
+                        (`"`report_mapping1'"'), linebreak
+                    putdocx table `report_table'(`group_row',`mapping_column') = ///
+                        (`"`report_mapping2'"'), append
+                    putdocx table `report_table'(`group_row',`result_column') = ///
+                        (`"Output variable: `report_output'"'), linebreak
+                    putdocx table `report_table'(`group_row',`result_column') = ///
+                        (`"Variable label: `report_label'"'), append
+                }
+            }
+            putdocx table `report_table'(.,.), ///
+                valign(center) font("Times New Roman", 8, "000000")
+            putdocx table `report_table'(1,.), ///
+                font("Times New Roman", 10, "000000")
+            putdocx table `report_table'(.,.), halign(left)
+            forvalues report_row = 1/`group_rows' {
+                putdocx table `report_table'(`report_row',.), nosplit
+            }
+
+            local note_variable = cond(`group_n' == 1, ///
+                "variable", "variables")
+            local note_verb = cond(`group_n' == 1, "was", "were")
+            putdocx paragraph, spacing(before, 0pt) spacing(after, 6pt)
+            putdocx text ("Note. "), ///
+                italic font("Times New Roman", 8, "000000")
+            if `"`report_section'"' == "regular_numeric" {
+                putdocx text ///
+                    ("`group_n' eligible numeric `note_variable' `note_verb' recoded using yesvalue(`yesvalue')."), ///
+                    font("Times New Roman", 8, "000000")
+            }
+            else if `"`report_section'"' == "regular_string" {
+                putdocx text ///
+                    ("`group_n' eligible string `note_variable' `note_verb' recoded using yesvalue(`yesvalue')."), ///
+                    font("Times New Roman", 8, "000000")
+            }
+            else {
+                putdocx text ///
+                    ("`group_n' `note_variable' with incomplete semantic information (`permissive_numeric_n' numeric and `permissive_string_n' string) `note_verb' recoded under permissive mode using yesvalue(`yesvalue')."), ///
+                    font("Times New Roman", 8, "000000")
+            }
+        }
+
+        putdocx save `"`report_path'"'
+        }
+        local report_rc = _rc
+        if `report_rc' {
+            capture putdocx clear
+            display as error ///
+                "recoding was verified, but the requested Word summary could not be created"
+            exit `report_rc'
+        }
     }
 
-    di as txt "semantic-identifiability summary: complete = " ///
-        as result `n_complete_semantic' ///
-        as txt "; partial (disabled by tightened V18) = " as result `n_partial_semantic' ///
-        as txt "; skipped for no semantics = " as result `n_skipped_no_semantics'
-
-    di as txt "number of numeric variables standardized: " ///
+    display as text "numeric variables successfully recoded: " ///
         as result `n_numeric_recoded'
-
-    if `n_numeric_recoded' > 0 {
-        di as txt "names of numeric variables standardized:"
-        loc detail_line
-        loc detail_count = 0
-        loc detail_width = max(20, c(linesize) - 4)
-
-        foreach name of local numeric_recoded {
-            loc candidate = strtrim("`detail_line' `name'")
-            loc candidate_length = strlen("`candidate'")
-
-            if `detail_count' > 0 & ///
-                (`detail_count' >= 7 | `candidate_length' > `detail_width') {
-                di as result "    `detail_line'"
-                loc detail_line "`name'"
-                loc detail_count = 1
-            }
-            else {
-                loc detail_line "`candidate'"
-                loc ++detail_count
-            }
-        }
-        if `"`detail_line'"' != "" di as result "    `detail_line'"
-    }
-    else di as txt "names of numeric variables standardized: " as result "none"
-
-    di as txt "number of string variables standardized: " ///
+    display as text "string variables successfully recoded: " ///
         as result `n_string_recoded'
+    display as text ///
+        "verification passed: all recoded values match the selected mapping rule; missingness and output labels validated"
+    return local value_label "`vallab'"
+    return local status_variable "`statusvar'"
+    return local report `"`report_path'"'
+    return scalar yesvalue = `yesvalue'
+    return scalar verified = 1
+    return scalar n_permissive_recoded = `permissive_n'
+    return local skipped `"`skipped'"'
+    return local structural_skipped `"`structural_skipped'"'
+    return local semantic_skipped `"`semantic_skipped'"'
+    return local source `"`source'"'
+    return local numeric_source `"`numeric_source'"'
+    return local string_source `"`string_source'"'
+    return local numeric_recoded `"`numeric_recoded'"'
+    return local string_recoded `"`string_recoded'"'
+    return local recoded `"`recoded'"'
+    return scalar n_structural_skipped = `n_structural_skipped'
+    return scalar n_semantic_skipped = `n_semantic_skipped'
+    return scalar n_numeric_recoded = `n_numeric_recoded'
+    return scalar n_string_recoded = `n_string_recoded'
+    return scalar n_recoded = `n_recoded'
+end
 
-    if `n_string_recoded' > 0 {
-        di as txt "names of string variables standardized:"
-        loc detail_line
-        loc detail_count = 0
-        loc detail_width = max(20, c(linesize) - 4)
 
-        foreach name of local string_recoded {
-            loc candidate = strtrim("`detail_line' `name'")
-            loc candidate_length = strlen("`candidate'")
+program define _recode12_value_label_exact, rclass
+    version 19.5
+    syntax, NAME(name)
+    local vl_exact 0
+    mata: _recode12_vl_exact(st_local("name"))
+    return scalar exact = real(`"`vl_exact'"')
+end
 
-            if `detail_count' > 0 & ///
-                (`detail_count' >= 7 | `candidate_length' > `detail_width') {
-                di as result "    `detail_line'"
-                loc detail_line "`name'"
-                loc detail_count = 1
+
+program define _recode12_textkey, rclass
+    version 19.5
+    syntax [, TEXT(string)]
+
+    local display = ustrtrim(ustrnormalize(`"`text'"', "nfkc"))
+    local protected = ustrlower(`"`display'"')
+    local protected = ustrregexra(`"`protected'"', "[\p{Z}\s]+", "")
+    local matching = ustrlower(`"`display'"')
+    local matching = ustrregexra(`"`matching'"', ///
+        "[\p{Z}\s\p{P}\p{S}]+", "")
+    local reserved = ustrregexm(`"`protected'"', "^\.[a-z]$")
+    local ordinary_missing = inlist(`"`protected'"', "", ".")
+    local string_numeric = inlist(`"`matching'"', "1", "2")
+
+    return local display `"`display'"'
+    return local protected_key `"`protected'"'
+    return local matching_key `"`matching'"'
+    return scalar reserved = `reserved'
+    return scalar ordinary_missing = `ordinary_missing'
+    return scalar string_numeric = `string_numeric'
+end
+
+
+program define _recode12_parse_codes, rclass
+    version 19.5
+    syntax [, TEXT(string)]
+
+    local category1
+    local category2
+    local normalized = ustrnormalize(`"`text'"', "nfkc")
+    if ustrregexm(`"`normalized'"', "(?i)1\s*=\s*([^;,\)]+)") {
+        local category1 = ustrtrim(ustrregexs(1))
+    }
+    if ustrregexm(`"`normalized'"', "(?i)2\s*=\s*([^;,\)]+)") {
+        local category2 = ustrtrim(ustrregexs(1))
+    }
+    return scalar found = (`"`category1'"' != "" & `"`category2'"' != "")
+    return local category1 `"`category1'"'
+    return local category2 `"`category2'"'
+end
+
+
+program define _recode12_generic_categories, rclass
+    version 19.5
+    syntax, CATEGORY1(string) CATEGORY2(string)
+
+    local k1 = ustrlower(ustrnormalize(`"`category1'"', "nfkc"))
+    local k2 = ustrlower(ustrnormalize(`"`category2'"', "nfkc"))
+    local k1 = ustrregexra(`"`k1'"', "[\p{Z}\s\p{P}\p{S}]+", "")
+    local k2 = ustrregexra(`"`k2'"', "[\p{Z}\s\p{P}\p{S}]+", "")
+    local g1 = ustrregexm(`"`k1'"', "^(category|type|code)[a-z0-9]*$")
+    local g2 = ustrregexm(`"`k2'"', "^(category|type|code)[a-z0-9]*$")
+    return scalar generic = (`g1' & `g2')
+end
+
+
+program define _recode12_context, rclass
+    version 19.5
+    syntax, VARNAME(string) [VARLABEL(string)]
+
+    local context = ustrtrim(`"`varlabel'"')
+    local context_key = ustrlower(ustrnormalize(`"`context'"', "nfkc"))
+    local context_key = ustrregexra(`"`context_key'"', ///
+        "[\p{Z}\s\p{P}\p{S}]+", "")
+    local reduced = ustrregexra(`"`context_key'"', ///
+        "(status|result|response|answer|generic|category|classification|administrative|field|note|code|group|level|value|variable)", "")
+
+    local name_key = ustrlower(ustrnormalize(`"`varname'"', "nfkc"))
+    local name_key = ustrregexra(`"`name_key'"', "[^a-z0-9]+", "")
+    local generic_name = ustrregexm(`"`name_key'"', ///
+        "^(v|var|x|item|column|q|note|field)[0-9]+$")
+
+    local sufficient = (`"`reduced'"' != "")
+    if !`sufficient' & !`generic_name' {
+        local name_reduced = ustrregexra(`"`name_key'"', ///
+            "(status|result|response|answer|generic|category|classification|administrative|field|note|code|group|level|value|variable)", "")
+        local sufficient = (`"`name_reduced'"' != "")
+        if `sufficient' & `"`context'"' == "" {
+            local context = ustrtitle(ustrregexra(`"`varname'"', "_+", " "))
+        }
+    }
+
+    local category_complete = 0
+    if ustrregexm(`"`name_key'"', ///
+        "(infected|receives|doesnotreceive|owns|doesnotown|completed|didnotcomplete)") {
+        local category_complete = 1
+    }
+
+    return scalar sufficient = `sufficient'
+    return scalar category_complete = `category_complete'
+    return local context `"`context'"'
+end
+
+
+program define _recode12_binary_context, rclass
+    version 19.5
+    syntax, VARNAME(string) [VARLABEL(string)]
+
+    local context = ustrtrim(`"`varlabel'"')
+    if `"`context'"' == "" {
+        local context = ustrtitle(ustrregexra(`"`varname'"', "_+", " "))
+    }
+    local sufficient = 0
+    local category1
+    local category2
+
+    if ustrregexm(`"`context'"', "(?i)^(.+?)\s+Coverage$") {
+        local subject = ustrtrim(ustrregexs(1))
+        local category1 `"No `subject'"'
+        local category2 `"Has `subject'"'
+        local sufficient = 1
+    }
+    else if ustrregexm(`"`context'"', "(?i)^(.+?)\s+Access$") {
+        local subject = ustrtrim(ustrregexs(1))
+        local category1 `"Has No Access to `subject'"'
+        local category2 `"Has Access to `subject'"'
+        local sufficient = 1
+    }
+    else if ustrregexm(`"`context'"', "(?i)^(.+?)\s+Service Status$") {
+        local subject = ustrtrim(ustrregexs(1))
+        local article
+        if ustrlower(`"`subject'"') == "military" local article "the "
+        local category1 `"Has Not Served in `article'`subject'"'
+        local category2 `"Has Served in `article'`subject'"'
+        local sufficient = 1
+    }
+
+    return scalar sufficient = `sufficient'
+    return local category1 `"`category1'"'
+    return local category2 `"`category2'"'
+end
+
+
+program define _recode12_directed_pair, rclass
+    version 19.5
+    syntax, KEYA(string) KEYB(string)
+
+    local a `"`keya'"'
+    local b `"`keyb'"'
+    local directed = 0
+    local negative
+    local positive
+    local family
+
+    if (inlist(`"`a'"', "no", "false") & inlist(`"`b'"', "yes", "true")) | ///
+       (inlist(`"`b'"', "no", "false") & inlist(`"`a'"', "yes", "true")) {
+        local family yesno
+        if inlist(`"`a'"', "no", "false") {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if (inlist(`"`a'"', "fail", "failed") & ///
+             inlist(`"`b'"', "pass", "passed")) | ///
+            (inlist(`"`b'"', "fail", "failed") & ///
+             inlist(`"`a'"', "pass", "passed")) {
+        local family passfail
+        if inlist(`"`a'"', "fail", "failed") {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if (inlist(`"`a'"', "negative", "absent") & ///
+             inlist(`"`b'"', "positive", "present")) | ///
+            (inlist(`"`b'"', "negative", "absent") & ///
+             inlist(`"`a'"', "positive", "present")) {
+        local family polarity
+        if inlist(`"`a'"', "negative", "absent") {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if (inlist(`"`a'"', "ineligible", "noteligible", "noeligibility") & ///
+             `"`b'"' == "eligible") | ///
+            (inlist(`"`b'"', "ineligible", "noteligible", "noeligibility") & ///
+             `"`a'"' == "eligible") {
+        local family eligibility
+        if `"`a'"' == "eligible" {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        else {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        local directed = 1
+    }
+    else if ((`"`a'"' == "notenrolled" & `"`b'"' == "enrolled") | ///
+             (`"`b'"' == "notenrolled" & `"`a'"' == "enrolled")) {
+        local family enrollment
+        if `"`a'"' == "notenrolled" {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if ((`"`a'"' == "notinfected" & `"`b'"' == "infected") | ///
+             (`"`b'"' == "notinfected" & `"`a'"' == "infected")) {
+        local family infection
+        if `"`a'"' == "notinfected" {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if ((`"`a'"' == "notlicensed" & `"`b'"' == "licensed") | ///
+             (`"`b'"' == "notlicensed" & `"`a'"' == "licensed")) {
+        local family licensed
+        if `"`a'"' == "notlicensed" {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if ((`"`a'"' == "nonmember" & `"`b'"' == "member") | ///
+             (`"`b'"' == "nonmember" & `"`a'"' == "member")) {
+        local family member
+        if `"`a'"' == "nonmember" {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else if ((`"`a'"' == "denied" & `"`b'"' == "approved") | ///
+             (`"`b'"' == "denied" & `"`a'"' == "approved")) {
+        local family decision
+        if `"`a'"' == "denied" {
+            local negative `"`a'"'
+            local positive `"`b'"'
+        }
+        else {
+            local negative `"`b'"'
+            local positive `"`a'"'
+        }
+        local directed = 1
+    }
+    else {
+        local negroot
+        local posroot
+        foreach left in a b {
+            local right = cond(`"`left'"' == "a", "b", "a")
+            local lv ``left''
+            local rv ``right''
+
+            if substr(`"`lv'"', 1, 14) == "doesnotreceive" & ///
+                substr(`"`rv'"', 1, 8) == "receives" & ///
+                substr(`"`lv'"', 15, .) == substr(`"`rv'"', 9, .) {
+                local directed = 1
+                local family receipt
+                local negative `"`lv'"'
+                local positive `"`rv'"'
             }
-            else {
-                loc detail_line "`candidate'"
-                loc ++detail_count
+            if substr(`"`lv'"', 1, 14) == "didnotcomplete" & ///
+                substr(`"`rv'"', 1, 9) == "completed" & ///
+                substr(`"`lv'"', 15, .) == substr(`"`rv'"', 10, .) {
+                local directed = 1
+                local family completion
+                local negative `"`lv'"'
+                local positive `"`rv'"'
+            }
+            if substr(`"`lv'"', 1, 10) == "doesnotown" & ///
+                substr(`"`rv'"', 1, 4) == "owns" & ///
+                substr(`"`lv'"', 11, .) == substr(`"`rv'"', 5, .) {
+                local directed = 1
+                local family ownership
+                local negative `"`lv'"'
+                local positive `"`rv'"'
             }
         }
-        if `"`detail_line'"' != "" di as result "    `detail_line'"
     }
-    else di as txt "names of string variables standardized: " as result "none"
+
+    return scalar directed = `directed'
+    return local negative_key `"`negative'"'
+    return local positive_key `"`positive'"'
+    return local family `"`family'"'
+end
+
+
+program define _recode12_directed_labels, rclass
+    version 19.5
+    syntax, FAMILY(string) CONTEXT(string) ///
+        NEGATIVEKEY(string) POSITIVEKEY(string) ///
+        DISPLAYA(string) KEYA(string) ///
+        DISPLAYB(string) KEYB(string)
+
+    local negative_display `"`displaya'"'
+    local positive_display `"`displayb'"'
+    if `"`keya'"' == `"`positivekey'"' {
+        local negative_display `"`displayb'"'
+        local positive_display `"`displaya'"'
+    }
+    local negative_display = ustrtitle(ustrtrim(`"`negative_display'"'))
+    local positive_display = ustrtitle(ustrtrim(`"`positive_display'"'))
+
+    local negative_label `"`negative_display'"'
+    local positive_label `"`positive_display'"'
+    local clean_context = ustrtrim(`"`context'"')
+
+    if `"`family'"' == "passfail" {
+        if ustrregexm(`"`clean_context'"', "(?i)^(.+?)\s+Accreditation$") {
+            local subject = ustrtrim(ustrregexs(1))
+            local negative_label `"`subject' Has Not Been Accredited"'
+            local positive_label `"`subject' Has Been Accredited"'
+        }
+        else {
+            local subject = ustrregexra(`"`clean_context'"', "(?i)\s+Result$", "")
+            local negative_label `"Failed `subject'"'
+            local positive_label `"Passed `subject'"'
+        }
+    }
+    else if `"`family'"' == "eligibility" {
+        if ustrregexm(`"`clean_context'"', "(?i)^Eligibility\s+for\s+(.+)$") {
+            local subject = ustrtrim(ustrregexs(1))
+            local negative_label `"Not Eligible for `subject'"'
+            local positive_label `"Eligible for `subject'"'
+        }
+    }
+    else if `"`family'"' == "enrollment" {
+        if ustrregexm(`"`clean_context'"', "(?i)^Enrollment\s+for\s+(.+)$") {
+            local subject = ustrtrim(ustrregexs(1))
+            local negative_label `"Not Enrolled in `subject'"'
+            local positive_label `"Enrolled in `subject'"'
+        }
+    }
+    else if `"`family'"' == "infection" {
+        local negative_label "Not Infected"
+        local positive_label "Infected"
+    }
+    else if `"`family'"' == "receipt" {
+        if ustrregexm(`"`clean_context'"', "(?i)^Receipt\s+of\s+(.+)$") {
+            local subject = ustrtrim(ustrregexs(1))
+            local negative_label `"Does Not Receive `subject'"'
+            local positive_label `"Receives `subject'"'
+        }
+    }
+    else if `"`family'"' == "completion" {
+        if ustrregexm(`"`clean_context'"', "(?i)^(.+?)\s+Completion") {
+            local subject = ustrtrim(ustrregexs(1))
+            local negative_label `"Did Not Complete `subject'"'
+            local positive_label `"Completed `subject'"'
+        }
+    }
+    else if inlist(`"`family'"', "yesno", "polarity", "licensed", ///
+        "member", "decision") & `"`clean_context'"' != "" {
+        local negative_label `"`negative_display': `clean_context'"'
+        local positive_label `"`positive_display': `clean_context'"'
+    }
+
+    return local negative_label `"`negative_label'"'
+    return local positive_label `"`positive_label'"'
+end
+
+
+program define _recode12_newname, rclass
+    version 19.5
+    syntax, SOURCE(name) SUFFIX(string)
+
+    local suffix_length = strlen(`"`suffix'"')
+    if `suffix_length' < 1 | `suffix_length' >= 32 {
+        display as error "suffix() leaves no room for a source-derived name"
+        exit 198
+    }
+    local base_length = 32 - `suffix_length'
+    local base = substr(`"`source'"', 1, `base_length')
+    local new `"`base'`suffix'"'
+    confirm name `new'
+    return local name `"`new'"'
+end
+
+
+capture mata: mata drop _recode12_scan_string()
+capture mata: mata drop _recode12_scan_strings()
+mata:
+void _recode12_scan_strings(string scalar varlist)
+{
+    string rowvector varnames
+    string matrix raw
+    string matrix display
+    string matrix lower
+    string matrix protected_key
+    string matrix matching
+    string colvector nonmissing_keys
+    string colvector display_col
+    string colvector matching_col
+    real colvector missing_col
+    real colvector missingflag
+    real colvector indices
+    real colvector second_indices
+    real colvector numericflag
+    real scalar n_reserved
+    real scalar n_nonmissing
+    real scalar n_keys
+    real scalar n_12
+    real scalar invalid_numeric_string
+    string scalar first_key
+    string scalar second_key
+    string scalar first_display
+    string scalar second_display
+    real scalar batch_start
+    real scalar batch_end
+    real scalar batch_column
+    real scalar global_column
+    real scalar n_variables
+    real scalar batch_width
+    string scalar suffix
+
+    varnames = tokens(varlist)
+    n_variables = cols(varnames)
+    if (n_variables == 0) return
+    if (st_nobs() == 0) batch_width = n_variables
+    else {
+        batch_width = min((n_variables, ///
+            max((1, floor(250000 / st_nobs())))))
+    }
+
+    for (batch_start = 1; batch_start <= n_variables; ///
+        batch_start = batch_start + batch_width) {
+        batch_end = min((batch_start + batch_width - 1, n_variables))
+        raw = st_sdata(., varnames[1, batch_start..batch_end])
+        display = ustrtrim(ustrnormalize(raw, "nfkc"))
+        lower = ustrlower(display)
+        protected_key = ustrregexra(lower, "[\p{Z}\s]+", "")
+        matching = ustrregexra(lower, "[\p{Z}\s\p{P}\p{S}]+", "")
+        missingflag = (display :== "") :| (protected_key :== ".")
+
+        for (batch_column = 1; batch_column <= cols(raw); batch_column++) {
+            global_column = batch_start + batch_column - 1
+            suffix = strofreal(global_column)
+            display_col = display[, batch_column]
+            matching_col = matching[, batch_column]
+            missing_col = missingflag[, batch_column]
+            n_reserved = sum(ustrregexm(protected_key[, batch_column], ///
+                "^\.[a-z]$"))
+            nonmissing_keys = select(matching_col, missing_col :== 0)
+            n_nonmissing = rows(nonmissing_keys)
+            n_keys = 0
+            n_12 = 0
+            invalid_numeric_string = 0
+            first_key = ""
+            second_key = ""
+            first_display = ""
+            second_display = ""
+
+            if (n_nonmissing > 0) {
+                n_keys = rows(uniqrows(sort(nonmissing_keys, 1)))
+                n_12 = sum((nonmissing_keys :== "1") :| ///
+                    (nonmissing_keys :== "2"))
+                numericflag = ustrregexm(nonmissing_keys, ///
+                    "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$")
+                invalid_numeric_string = ///
+                    sum(numericflag :& (nonmissing_keys :!= "1") :& ///
+                        (nonmissing_keys :!= "2")) > 0
+                indices = selectindex(missing_col :== 0)
+                first_key = matching_col[indices[1]]
+                first_display = display_col[indices[1]]
+                second_indices = selectindex((missing_col :== 0) :& ///
+                    (matching_col :!= first_key))
+                if (rows(second_indices) > 0) {
+                    second_key = matching_col[second_indices[1]]
+                    second_display = display_col[second_indices[1]]
+                }
+            }
+
+            st_local("scan_n_reserved" + suffix, ///
+                strofreal(n_reserved, "%18.0f"))
+            st_local("scan_n_nonmissing" + suffix, ///
+                strofreal(n_nonmissing, "%18.0f"))
+            st_local("scan_n_keys" + suffix, ///
+                strofreal(n_keys, "%18.0f"))
+            st_local("scan_n_12" + suffix, strofreal(n_12, "%18.0f"))
+            st_local("scan_invalid_numeric_string" + suffix, ///
+                strofreal(invalid_numeric_string, "%18.0f"))
+            st_local("scan_first_key" + suffix, first_key)
+            st_local("scan_second_key" + suffix, second_key)
+            st_local("scan_first_display" + suffix, first_display)
+            st_local("scan_second_display" + suffix, second_display)
+        }
+    }
 }
-
-di as txt "verification passed: all recoded values match the selected mapping rule"
-
-return local value_label "`vallab'"
-return local status_variable "`statusvar'"
-return scalar yesvalue = `yesvalue'
-return scalar verified = 1
-return local skipped `"`skipped'"'
-return local source `"`eligible'"'
-return local numeric_source `"`numeric_eligible'"'
-return local string_source `"`string_eligible'"'
-return local numeric_recoded `"`numeric_recoded'"'
-return local string_recoded `"`string_recoded'"'
-return local recoded `"`recoded'"'
-return local requested_names `"`requested_names'"'
-return local generated_names `"`generated_names'"'
-return local shortened_sources `"`shortened_sources'"'
-return local skipped_no_semantics `"`skipped_no_semantics'"'
-return local partial_semantic_source `"`partial_semantic_source'"'
-return local complete_semantic_source `"`complete_semantic_source'"'
-return local semantic_sources `"`semantic_sources'"'
-return local semantic_levels `"`semantic_levels'"'
-return scalar n_skipped_no_semantics = `n_skipped_no_semantics'
-return scalar n_partial_semantic = `n_partial_semantic'
-return scalar n_complete_semantic = `n_complete_semantic'
-return scalar n_numeric_recoded = `n_numeric_recoded'
-return scalar n_string_recoded = `n_string_recoded'
-return scalar n_recoded = `n_recoded'
 end
