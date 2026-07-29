@@ -861,7 +861,7 @@ program define recode12, rclass
             }
         }
 
-        putdocx save `"`report_path'"'
+        quietly putdocx save `"`report_path'"'
         }
         local report_rc = _rc
         if `report_rc' {
@@ -869,6 +869,18 @@ program define recode12, rclass
             display as error ///
                 "recoding was verified, but the requested Word summary could not be created"
             exit `report_rc'
+        }
+        if `"`c(os)'"' == "Windows" {
+            display as text ///
+                `"{stata `"shell start "" "`report_path'""':recoding summary.docx}"'
+        }
+        else if `"`c(os)'"' == "MacOSX" {
+            display as text ///
+                `"{stata `"shell open "`report_path'""':recoding summary.docx}"'
+        }
+        else {
+            display as text ///
+                `"{stata `"shell xdg-open "`report_path'""':recoding summary.docx}"'
         }
     }
 
