@@ -1,4 +1,4 @@
-*! version 1.1.2  29jul2026
+*! version 1.2.0  29jul2026
 
 capture mata: mata drop _recode12_vl_exact()
 mata:
@@ -22,6 +22,7 @@ end
 
 program define recode12, rclass
     version 19.5
+
     syntax [varlist(default=none)] [, YESValue(string) SUFfix(name) ///
         REPlace DISPlay PERMissive]
 
@@ -870,17 +871,26 @@ program define recode12, rclass
                 "recoding was verified, but the requested Word summary could not be created"
             exit `report_rc'
         }
-        if `"`c(os)'"' == "Windows" {
-            display as text ///
-                `"{stata `"shell start "" "`report_path'""':recoding summary.docx}"'
-        }
-        else if `"`c(os)'"' == "MacOSX" {
-            display as text ///
-                `"{stata `"shell open "`report_path'""':recoding summary.docx}"'
-        }
-        else {
-            display as text ///
-                `"{stata `"shell xdg-open "`report_path'""':recoding summary.docx}"'
+        if `"`c(mode)'"' != "batch" {
+            local report_open_rc = 0
+            if `"`c(os)'"' == "Windows" {
+                local windows_path = ///
+                    subinstr(`"`report_path'"', "/", "\", .)
+                capture shell start "" "`windows_path'"
+                local report_open_rc = _rc
+            }
+            else if `"`c(os)'"' == "MacOSX" {
+                capture shell open "`report_path'"
+                local report_open_rc = _rc
+            }
+            else {
+                capture shell xdg-open "`report_path'"
+                local report_open_rc = _rc
+            }
+            if `report_open_rc' {
+                display as error ///
+                    "recoding summary was created but could not be opened automatically"
+            }
         }
     }
 
